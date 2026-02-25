@@ -37,6 +37,8 @@ class EventType(str, Enum):
     SECURITY_SCAN = "security_scan"
     SECURITY_ALERT = "security_alert"
     SECURITY_BLOCK = "security_block"
+    SCHEDULER_TASK_START = "scheduler_task_start"
+    SCHEDULER_TASK_END = "scheduler_task_end"
 
 
 @dataclass(slots=True)

@@ -4,7 +4,78 @@ All notable changes to OpenJarvis are documented in this file.
 
 ---
 
-## Unreleased
+## Unreleased — Phase 11 (NanoClaw Subsumption)
+
+*27 new files, ~3,565 lines, 147+ new tests. Full suite: 2059+ tests pass.*
+
+### Added
+
+- **`ClaudeCodeAgent`** (`agents/claude_code.py`) -- Wraps the
+  `@anthropic-ai/claude-code` SDK via a bundled Node.js subprocess bridge.
+  Communicates over stdin/stdout using sentinel-delimited JSON
+  (`---OPENJARVIS_OUTPUT_START---` / `---OPENJARVIS_OUTPUT_END---`). The
+  bundled runner is auto-installed to `~/.openjarvis/claude_code_runner/` via
+  `npm install --production` on first use. Registered as `"claude_code"` with
+  `accepts_tools = False`. Requires Node.js 22+ and `ANTHROPIC_API_KEY`.
+- **`WhatsAppBaileysChannel`** (`channels/whatsapp_baileys.py`) -- Bidirectional
+  WhatsApp messaging using the Baileys protocol. Spawns a Node.js bridge
+  subprocess (`whatsapp_baileys_bridge/`) for QR-code authentication, incoming
+  message forwarding, and outbound delivery via JID addressing. Registered as
+  `"whatsapp_baileys"` in `ChannelRegistry`. Authentication state is persisted
+  to `~/.openjarvis/whatsapp_baileys_bridge/auth/`. New config section:
+  `[channel.whatsapp_baileys]`.
+- **`ContainerRunner`** (`sandbox/runner.py`) -- Manages Docker (or Podman)
+  container lifecycle for sandboxed agent execution. Builds `docker run --rm
+  --network none -i` commands with allowlist-validated read-only bind mounts.
+  Supports configurable image, timeout, concurrent container limit, and runtime
+  binary. Uses the same sentinel-delimited JSON protocol as `ClaudeCodeAgent`.
+- **`SandboxedAgent`** (`sandbox/runner.py`) -- Transparent wrapper that runs
+  any `BaseAgent` inside a container via `ContainerRunner`. Follows the
+  `GuardrailsEngine` wrapper pattern. `accepts_tools = False`.
+- **`MountAllowlist` / `validate_mounts()`** (`sandbox/mount_security.py`) --
+  Port of NanoClaw's `mount-security.ts`. Validates bind mounts against a JSON
+  allowlist (allowed root directories + blocked filename patterns). Raises
+  `ValueError` for blocked or out-of-root paths before the container starts.
+  Default blocked patterns include `.ssh`, `.env`, `*.pem`, `*.key`, credential
+  files, and cloud config directories.
+- **`TaskScheduler`** (`scheduler/scheduler.py`) -- Background polling scheduler
+  supporting three schedule types: `cron` (via `croniter` or built-in fallback),
+  `interval` (seconds), and `once` (ISO 8601 datetime). Runs a daemon thread
+  (`jarvis-scheduler`) polling SQLite every 60 seconds (configurable). Executes
+  due tasks via `JarvisSystem.ask()` with optional agent and tool selection.
+  Publishes `scheduler_task_start` / `scheduler_task_end` events on the
+  `EventBus`. New config section: `[scheduler]`.
+- **`SchedulerStore`** (`scheduler/store.py`) -- SQLite CRUD backend for
+  scheduled tasks and run logs. Two tables: `scheduled_tasks` (task state) and
+  `task_run_logs` (execution history). Supports task filtering by status and
+  due-time polling via `get_due_tasks()`.
+- **Scheduler MCP tools** (`scheduler/tools.py`) -- Five new MCP-discoverable
+  tools registered in `ToolRegistry`:
+    - `schedule_task` -- Create a new scheduled task
+    - `list_scheduled_tasks` -- List tasks filtered by status
+    - `pause_scheduled_task` -- Pause an active task
+    - `resume_scheduled_task` -- Resume a paused task (recomputes `next_run`)
+    - `cancel_scheduled_task` -- Permanently cancel a task
+- **Scheduler CLI commands** -- `jarvis scheduler` subcommand group:
+    - `jarvis scheduler create` -- Create a new scheduled task
+    - `jarvis scheduler list` -- List all or filtered tasks
+    - `jarvis scheduler pause <id>` -- Pause a task
+    - `jarvis scheduler resume <id>` -- Resume a task
+    - `jarvis scheduler cancel <id>` -- Cancel a task
+    - `jarvis scheduler logs <id>` -- Show run history for a task
+    - `jarvis scheduler start` -- Start the background scheduler daemon
+
+### Changed
+
+- `ChannelRegistry` now includes `WhatsAppBaileysChannel` alongside
+  `OpenClawChannelBridge`.
+- `AgentRegistry` now includes `ClaudeCodeAgent` (`"claude_code"`).
+- Architecture overview and source directory layout updated to reflect new
+  `sandbox/` and `scheduler/` modules.
+
+---
+
+## Unreleased — Phase 10 Tooling Updates
 
 ### Added
 

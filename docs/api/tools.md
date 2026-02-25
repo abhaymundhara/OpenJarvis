@@ -117,6 +117,47 @@ system. These wrap the memory backend methods as `BaseTool` implementations.
 
 ---
 
+## Scheduler Tools
+
+MCP tools for scheduling agent tasks for future or recurring execution. All five tools are in the `scheduler` category and require a `TaskScheduler` instance to be injected at `_scheduler`. For usage and schedule type examples see the [Scheduler Tools user guide](../user-guide/tools.md#scheduler-tools).
+
+### ScheduleTaskTool
+
+::: openjarvis.scheduler.tools.ScheduleTaskTool
+    options:
+      show_source: true
+      members_order: source
+
+### ListScheduledTasksTool
+
+::: openjarvis.scheduler.tools.ListScheduledTasksTool
+    options:
+      show_source: true
+      members_order: source
+
+### PauseScheduledTaskTool
+
+::: openjarvis.scheduler.tools.PauseScheduledTaskTool
+    options:
+      show_source: true
+      members_order: source
+
+### ResumeScheduledTaskTool
+
+::: openjarvis.scheduler.tools.ResumeScheduledTaskTool
+    options:
+      show_source: true
+      members_order: source
+
+### CancelScheduledTaskTool
+
+::: openjarvis.scheduler.tools.CancelScheduledTaskTool
+    options:
+      show_source: true
+      members_order: source
+
+---
+
 ## MCP Adapter
 
 Integration with the Model Context Protocol (MCP). The MCP adapter exposes

@@ -620,6 +620,15 @@ class BlueBubblesChannelConfig:
     password: str = ""
 
 
+@dataclass(slots=True)
+class WhatsAppBaileysChannelConfig:
+    """Per-channel config for WhatsApp via Baileys protocol."""
+
+    auth_dir: str = ""           # Defaults to ~/.openjarvis/whatsapp_auth
+    assistant_name: str = "Jarvis"
+    assistant_has_own_number: bool = False
+
+
 @dataclass
 class ChannelConfig:
     """Channel messaging settings."""
@@ -642,6 +651,9 @@ class ChannelConfig:
     mattermost: MattermostChannelConfig = field(default_factory=MattermostChannelConfig)
     feishu: FeishuChannelConfig = field(default_factory=FeishuChannelConfig)
     bluebubbles: BlueBubblesChannelConfig = field(default_factory=BlueBubblesChannelConfig)
+    whatsapp_baileys: WhatsAppBaileysChannelConfig = field(
+        default_factory=WhatsAppBaileysChannelConfig,
+    )
 
 
 @dataclass(slots=True)
@@ -656,6 +668,28 @@ class SecurityConfig:
     pii_scanner: bool = True
     audit_log_path: str = str(DEFAULT_CONFIG_DIR / "audit.db")
     enforce_tool_confirmation: bool = True
+
+
+@dataclass(slots=True)
+class SandboxConfig:
+    """Container sandbox settings."""
+
+    enabled: bool = False
+    image: str = "openjarvis-sandbox:latest"
+    timeout: int = 300
+    workspace: str = ""
+    mount_allowlist_path: str = ""
+    max_concurrent: int = 5
+    runtime: str = "docker"
+
+
+@dataclass(slots=True)
+class SchedulerConfig:
+    """Task scheduler settings."""
+
+    enabled: bool = False
+    poll_interval: int = 60
+    db_path: str = ""  # Defaults to ~/.openjarvis/scheduler.db
 
 
 @dataclass
@@ -673,6 +707,8 @@ class JarvisConfig:
     traces: TracesConfig = field(default_factory=TracesConfig)
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     security: SecurityConfig = field(default_factory=SecurityConfig)
+    sandbox: SandboxConfig = field(default_factory=SandboxConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
 
     @property
     def memory(self) -> StorageConfig:
@@ -765,7 +801,7 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
         top_sections = (
             "engine", "intelligence", "learning", "agent",
             "server", "telemetry", "traces", "security",
-            "channel", "tools",
+            "channel", "tools", "sandbox", "scheduler",
         )
         for section_name in top_sections:
             if section_name in data:
@@ -940,6 +976,23 @@ scan_output = true
 secret_scanner = true
 pii_scanner = true
 enforce_tool_confirmation = true
+
+# [sandbox]
+# enabled = false
+# image = "openjarvis-sandbox:latest"
+# timeout = 300
+# max_concurrent = 5
+# runtime = "docker"
+
+# [scheduler]
+# enabled = false
+# poll_interval = 60
+# db_path = ""                # Defaults to ~/.openjarvis/scheduler.db
+
+# [channel.whatsapp_baileys]
+# auth_dir = ""               # Defaults to ~/.openjarvis/whatsapp_auth
+# assistant_name = "Jarvis"
+# assistant_has_own_number = false
 """
 
 
@@ -971,6 +1024,8 @@ __all__ = [
     "OllamaEngineConfig",
     "RoutingLearningConfig",
     "SGLangEngineConfig",
+    "SandboxConfig",
+    "SchedulerConfig",
     "SecurityConfig",
     "ServerConfig",
     "SignalChannelConfig",
@@ -984,6 +1039,7 @@ __all__ = [
     "VLLMEngineConfig",
     "WebChatChannelConfig",
     "WebhookChannelConfig",
+    "WhatsAppBaileysChannelConfig",
     "WhatsAppChannelConfig",
     "detect_hardware",
     "generate_default_toml",

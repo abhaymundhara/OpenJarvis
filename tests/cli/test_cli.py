@@ -63,6 +63,21 @@ class TestCLI:
         assert result.exit_code == 0
         assert "run" in result.output
 
+    def test_scheduler_subcommands_exist(self) -> None:
+        result = CliRunner().invoke(cli, ["scheduler", "--help"])
+        assert result.exit_code == 0
+        assert "create" in result.output
+        assert "list" in result.output
+        assert "pause" in result.output
+        assert "resume" in result.output
+        assert "cancel" in result.output
+
+    def test_channel_subcommands_exist(self) -> None:
+        result = CliRunner().invoke(cli, ["channel", "--help"])
+        assert result.exit_code == 0
+        assert "send" in result.output
+        assert "list" in result.output
+
     def test_init_creates_config(self, tmp_path: Path) -> None:
         config_dir = tmp_path / ".openjarvis"
         config_path = config_dir / "config.toml"

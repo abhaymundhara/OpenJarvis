@@ -33,6 +33,9 @@ class JarvisSystem:
     trace_store: Optional[Any] = None
     trace_collector: Optional[Any] = None
     gpu_monitor: Optional[Any] = None
+    scheduler_store: Optional[Any] = None  # SchedulerStore
+    scheduler: Optional[Any] = None  # TaskScheduler
+    container_runner: Optional[Any] = None  # ContainerRunner
 
     def ask(
         self,
@@ -210,6 +213,10 @@ class JarvisSystem:
 
     def close(self) -> None:
         """Release resources."""
+        if self.scheduler and hasattr(self.scheduler, "stop"):
+            self.scheduler.stop()
+        if self.scheduler_store and hasattr(self.scheduler_store, "close"):
+            self.scheduler_store.close()
         if self.engine and hasattr(self.engine, "close"):
             self.engine.close()
         if self.gpu_monitor and hasattr(self.gpu_monitor, "close"):
@@ -245,6 +252,8 @@ class SystemBuilder:
         self._telemetry: Optional[bool] = None
         self._traces: Optional[bool] = None
         self._bus: Optional[EventBus] = None
+        self._sandbox: Optional[bool] = None
+        self._scheduler: Optional[bool] = None
 
     def engine(self, key: str) -> SystemBuilder:
         self._engine_key = key
@@ -268,6 +277,14 @@ class SystemBuilder:
 
     def traces(self, enabled: bool) -> SystemBuilder:
         self._traces = enabled
+        return self
+
+    def sandbox(self, enabled: bool) -> SystemBuilder:
+        self._sandbox = enabled
+        return self
+
+    def scheduler(self, enabled: bool) -> SystemBuilder:
+        self._scheduler = enabled
         return self
 
     def event_bus(self, bus: EventBus) -> SystemBuilder:
@@ -334,6 +351,12 @@ class SystemBuilder:
         # Resolve agent name
         agent_name = self._agent_name or config.agent.default_agent
 
+        # Set up container sandbox runner
+        container_runner = self._setup_sandbox(config)
+
+        # Set up scheduler
+        scheduler_store, task_scheduler = self._setup_scheduler(config, bus)
+
         return JarvisSystem(
             config=config,
             bus=bus,
@@ -347,6 +370,9 @@ class SystemBuilder:
             channel_backend=channel_backend,
             telemetry_store=telemetry_store,
             gpu_monitor=gpu_monitor,
+            scheduler_store=scheduler_store,
+            scheduler=task_scheduler,
+            container_runner=container_runner,
         )
 
     def _resolve_engine(self, config: JarvisConfig):
@@ -546,6 +572,13 @@ class SystemBuilder:
                     kwargs["url"] = bbc.url
                 if bbc.password:
                     kwargs["password"] = bbc.password
+            elif key == "whatsapp_baileys":
+                wbc = config.channel.whatsapp_baileys
+                if wbc.auth_dir:
+                    kwargs["auth_dir"] = wbc.auth_dir
+                if wbc.assistant_name:
+                    kwargs["assistant_name"] = wbc.assistant_name
+                kwargs["assistant_has_own_number"] = wbc.assistant_has_own_number
 
             return ChannelRegistry.create(key, **kwargs)
         except Exception:
@@ -619,6 +652,65 @@ class SystemBuilder:
         elif name.startswith("channel_"):
             if hasattr(tool, "_channel"):
                 tool._channel = channel_backend
+        elif name in (
+            "schedule_task", "list_scheduled_tasks",
+            "pause_scheduled_task", "resume_scheduled_task",
+            "cancel_scheduled_task",
+        ):
+            pass  # scheduler injection handled post-build
+
+    def _setup_sandbox(self, config):
+        """Set up container sandbox runner if enabled."""
+        sandbox_enabled = (
+            self._sandbox if self._sandbox is not None
+            else config.sandbox.enabled
+        )
+        if not sandbox_enabled:
+            return None
+        try:
+            from openjarvis.sandbox.runner import ContainerRunner
+
+            return ContainerRunner(
+                image=config.sandbox.image,
+                timeout=config.sandbox.timeout,
+                mount_allowlist_path=config.sandbox.mount_allowlist_path,
+                max_concurrent=config.sandbox.max_concurrent,
+                runtime=config.sandbox.runtime,
+            )
+        except Exception:
+            return None
+
+    def _setup_scheduler(self, config, bus):
+        """Set up task scheduler if enabled."""
+        scheduler_enabled = (
+            self._scheduler if self._scheduler is not None
+            else config.scheduler.enabled
+        )
+        if not scheduler_enabled:
+            return None, None
+        try:
+            from openjarvis.scheduler.store import SchedulerStore
+
+            db_path = config.scheduler.db_path or str(
+                config.hardware.platform  # unused, just for fallback
+            )
+            if not config.scheduler.db_path:
+                from openjarvis.core.config import DEFAULT_CONFIG_DIR
+
+                db_path = str(DEFAULT_CONFIG_DIR / "scheduler.db")
+
+            store = SchedulerStore(db_path=db_path)
+
+            from openjarvis.scheduler.scheduler import TaskScheduler
+
+            sched = TaskScheduler(
+                store,
+                poll_interval=config.scheduler.poll_interval,
+                bus=bus,
+            )
+            return store, sched
+        except Exception:
+            return None, None
 
     @staticmethod
     def _discover_external_mcp(server_cfg) -> List[BaseTool]:

@@ -83,6 +83,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import openjarvis.channels.whatsapp_baileys  # noqa: F401
+except ImportError:
+    pass
+
 __all__ = [
     "BaseChannel",
     "ChannelHandler",

@@ -13,7 +13,10 @@ from openjarvis.core.config import (
     IntelligenceConfig,
     JarvisConfig,
     LearningConfig,
+    SandboxConfig,
+    SchedulerConfig,
     SecurityConfig,
+    WhatsAppBaileysChannelConfig,
     generate_default_toml,
     load_config,
     recommend_engine,
@@ -360,3 +363,110 @@ class TestGenerateDefaultTomlNew:
         toml_str = generate_default_toml(hw)
         assert "[learning.routing]" in toml_str
         assert 'policy = "heuristic"' in toml_str
+
+
+# ---------------------------------------------------------------------------
+# Sandbox config tests
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxConfig:
+    def test_defaults(self) -> None:
+        sc = SandboxConfig()
+        assert sc.enabled is False
+        assert sc.image == "openjarvis-sandbox:latest"
+        assert sc.timeout == 300
+        assert sc.workspace == ""
+        assert sc.mount_allowlist_path == ""
+        assert sc.max_concurrent == 5
+        assert sc.runtime == "docker"
+
+    def test_custom_values(self) -> None:
+        sc = SandboxConfig(
+            enabled=True,
+            image="custom:v2",
+            timeout=600,
+            runtime="podman",
+        )
+        assert sc.enabled is True
+        assert sc.image == "custom:v2"
+        assert sc.timeout == 600
+        assert sc.runtime == "podman"
+
+    def test_on_jarvis_config(self) -> None:
+        cfg = JarvisConfig()
+        assert isinstance(cfg.sandbox, SandboxConfig)
+        assert cfg.sandbox.enabled is False
+
+    def test_loads_from_toml(self, tmp_path: Path) -> None:
+        toml_file = tmp_path / "config.toml"
+        toml_file.write_text(
+            '[sandbox]\nenabled = true\ntimeout = 600\n'
+            'runtime = "podman"\n'
+        )
+        cfg = load_config(toml_file)
+        assert cfg.sandbox.enabled is True
+        assert cfg.sandbox.timeout == 600
+        assert cfg.sandbox.runtime == "podman"
+
+
+# ---------------------------------------------------------------------------
+# Scheduler config tests
+# ---------------------------------------------------------------------------
+
+
+class TestSchedulerConfig:
+    def test_defaults(self) -> None:
+        sc = SchedulerConfig()
+        assert sc.enabled is False
+        assert sc.poll_interval == 60
+        assert sc.db_path == ""
+
+    def test_custom_values(self) -> None:
+        sc = SchedulerConfig(enabled=True, poll_interval=30, db_path="/tmp/sched.db")
+        assert sc.enabled is True
+        assert sc.poll_interval == 30
+        assert sc.db_path == "/tmp/sched.db"
+
+    def test_on_jarvis_config(self) -> None:
+        cfg = JarvisConfig()
+        assert isinstance(cfg.scheduler, SchedulerConfig)
+        assert cfg.scheduler.enabled is False
+
+    def test_loads_from_toml(self, tmp_path: Path) -> None:
+        toml_file = tmp_path / "config.toml"
+        toml_file.write_text(
+            '[scheduler]\nenabled = true\npoll_interval = 30\n'
+            'db_path = "/tmp/sched.db"\n'
+        )
+        cfg = load_config(toml_file)
+        assert cfg.scheduler.enabled is True
+        assert cfg.scheduler.poll_interval == 30
+        assert cfg.scheduler.db_path == "/tmp/sched.db"
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp Baileys channel config tests
+# ---------------------------------------------------------------------------
+
+
+class TestWhatsAppBaileysChannelConfig:
+    def test_defaults(self) -> None:
+        wc = WhatsAppBaileysChannelConfig()
+        assert wc.auth_dir == ""
+        assert wc.assistant_name == "Jarvis"
+        assert wc.assistant_has_own_number is False
+
+    def test_custom_values(self) -> None:
+        wc = WhatsAppBaileysChannelConfig(
+            auth_dir="/tmp/wa",
+            assistant_name="Andy",
+            assistant_has_own_number=True,
+        )
+        assert wc.auth_dir == "/tmp/wa"
+        assert wc.assistant_name == "Andy"
+        assert wc.assistant_has_own_number is True
+
+    def test_on_channel_config(self) -> None:
+        cc = ChannelConfig()
+        assert isinstance(cc.whatsapp_baileys, WhatsAppBaileysChannelConfig)

@@ -107,6 +107,9 @@ class ToolUsingAgent(BaseAgent):
 
 All tool-using agents (`OrchestratorAgent`, `NativeReActAgent`, `NativeOpenHandsAgent`, `RLMAgent`) extend this class.
 
+!!! info "Agents that bypass ToolUsingAgent"
+    Some agents extend `BaseAgent` directly and set `accepts_tools = False`: `SimpleAgent` (single-turn, no tools), `OpenHandsAgent` (tool management is handled by the openhands-sdk), and `ClaudeCodeAgent` (tools are managed by the Claude Agent SDK). `SandboxedAgent` also extends `BaseAgent` directly because it wraps another agent rather than calling tools itself.
+
 ---
 
 ## Agent Implementations
@@ -378,6 +381,98 @@ agent = OpenClawAgent(engine, model="qwen3:8b", mode="http")
 # Subprocess mode (launches Node.js process)
 agent = OpenClawAgent(engine, model="qwen3:8b", mode="subprocess")
 ```
+
+### ClaudeCodeAgent
+
+**Registry key:** `claude_code`
+
+Wraps the `@anthropic-ai/claude-code` SDK via a bundled Node.js subprocess bridge. Unlike every other agent, inference is handled entirely by the Claude Agent SDK -- the OpenJarvis inference engine is not used. This makes `ClaudeCodeAgent` a true external agent, similar in spirit to `OpenHandsAgent` but implemented via subprocess rather than an importable Python SDK.
+
+```mermaid
+graph LR
+    Q["User Query"] --> PY["Python: build JSON request"]
+    PY --> SPAWN["Spawn: node dist/index.js"]
+    SPAWN --> NODE["Node.js runner<br/>@anthropic-ai/claude-code SDK"]
+    NODE --> SDK["Claude Agent SDK<br/>(cloud inference)"]
+    SDK --> NODE
+    NODE --> JSON["Sentinel-delimited JSON<br/>on stdout"]
+    JSON --> PARSE["Python: parse output"]
+    PARSE --> R["AgentResult"]
+```
+
+How it works:
+
+1. On first call, copies the bundled `claude_code_runner/` to `~/.openjarvis/claude_code_runner/` and runs `npm install --production` if `node_modules` is absent
+2. Builds a JSON request with `prompt`, `api_key`, `workspace`, `allowed_tools`, `system_prompt`, and `session_id`
+3. Spawns `node dist/index.js` and writes the request to stdin
+4. Reads stdout and extracts the JSON payload between `---OPENJARVIS_OUTPUT_START---` and `---OPENJARVIS_OUTPUT_END---` sentinels
+5. Falls back to treating all stdout as plain text content if sentinels are absent
+
+!!! warning "Requires Node.js 22+"
+    `ClaudeCodeAgent` raises `RuntimeError` at `run()` time if `node` is not found on `PATH`. An `ANTHROPIC_API_KEY` environment variable is required for the Claude Agent SDK to authenticate.
+
+```python
+from openjarvis.agents.claude_code import ClaudeCodeAgent
+
+agent = ClaudeCodeAgent(
+    engine=None,   # not used
+    model="",      # not used
+    workspace="/path/to/project",
+    timeout=120,
+)
+result = agent.run("Add type hints to all functions in utils.py")
+```
+
+### SandboxedAgent and ContainerRunner
+
+`SandboxedAgent` and `ContainerRunner` together implement **container-isolated agent execution** following the `GuardrailsEngine` wrapper pattern. `SandboxedAgent` wraps any `BaseAgent` and delegates execution to a Docker (or Podman) container managed by `ContainerRunner`.
+
+```mermaid
+graph LR
+    Q["User Query"] --> SA["SandboxedAgent.run()"]
+    SA --> CR["ContainerRunner.run()"]
+    CR --> VALIDATE["Validate mounts<br/>vs allowlist"]
+    VALIDATE --> DOCKER["docker run --rm<br/>--network none<br/>-i image"]
+    DOCKER --> STDIN["Write JSON payload<br/>to stdin"]
+    STDIN --> CONTAINER["Container: run agent,<br/>write output to stdout"]
+    CONTAINER --> PARSE["Parse sentinel-<br/>delimited JSON"]
+    PARSE --> R["AgentResult"]
+```
+
+**ContainerRunner** manages the full container lifecycle:
+
+- Validates mount paths against a `MountAllowlist` before container start (raises `ValueError` for blocked or out-of-root paths)
+- Constructs `docker run --rm --network none -i <image>` with validated read-only bind mounts
+- Sends a JSON payload to container stdin (prompt, agent ID, model, and optional secrets)
+- Reads stdout and parses sentinel-delimited JSON output
+- On timeout, force-kills the container via `docker rm -f`
+- `cleanup_orphans()` removes any stale containers labelled `openjarvis-sandbox=true`
+
+**Mount security** (`sandbox/mount_security.py`) enforces two independent checks on every mount path:
+
+1. **Blocked patterns:** Path components are matched against `DEFAULT_BLOCKED_PATTERNS` (`.ssh`, `.env`, `*.pem`, `*.key`, cloud configs, etc.). A match raises `ValueError`.
+2. **Allowed roots:** If `roots` are configured in the allowlist, the resolved path must be under one of them. An empty `roots` list allows any non-blocked path.
+
+```python
+from openjarvis.sandbox import ContainerRunner, SandboxedAgent
+
+runner = ContainerRunner(
+    image="openjarvis-sandbox:latest",
+    timeout=60,
+    runtime="docker",
+)
+# Wrap any BaseAgent
+inner = SimpleAgent(engine, model="qwen3:8b")
+sandboxed = SandboxedAgent(
+    agent=inner,
+    runner=runner,
+    mounts=["/home/user/data"],
+)
+result = sandboxed.run("Summarize the reports in /home/user/data")
+```
+
+!!! warning "accepts_tools = False"
+    `SandboxedAgent` does not accept tools via `--tools` or `tools=`. Tool calling within the sandbox is the responsibility of the wrapped inner agent.
 
 ---
 

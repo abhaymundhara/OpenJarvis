@@ -11,6 +11,7 @@ from openjarvis.cli.channel_cmd import channel
 from openjarvis.cli.init_cmd import init
 from openjarvis.cli.memory_cmd import memory
 from openjarvis.cli.model import model
+from openjarvis.cli.scheduler_cmd import scheduler
 from openjarvis.cli.serve import serve
 from openjarvis.cli.telemetry_cmd import telemetry
 
@@ -29,6 +30,7 @@ cli.add_command(memory, "memory")
 cli.add_command(telemetry, "telemetry")
 cli.add_command(bench, "bench")
 cli.add_command(channel, "channel")
+cli.add_command(scheduler, "scheduler")
 
 
 def main() -> None:

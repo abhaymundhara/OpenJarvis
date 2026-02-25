@@ -339,6 +339,138 @@ print(result.content)
 print(result.metadata)  # {"path": "/home/user/projects/README.md", "size_bytes": 1234}
 ```
 
+### WebSearch
+
+**Registry key:** `web_search` | **Category:** `search`
+
+Searches the web and returns a result summary. Useful for queries that need current information.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description                              |
+|-----------|--------|----------|------------------------------------------|
+| `query`   | string | Yes      | Search query string                      |
+
+### CodeInterpreter
+
+**Registry key:** `code_interpreter` | **Category:** `code`
+
+Executes Python code snippets in a sandboxed environment and returns the output. Used by `NativeOpenHandsAgent` for CodeAct-style execution.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description                              |
+|-----------|--------|----------|------------------------------------------|
+| `code`    | string | Yes      | Python code to execute                   |
+
+---
+
+## Scheduler Tools
+
+The scheduler tools expose `TaskScheduler` operations as MCP-discoverable tools. They allow agents to programmatically create, manage, and inspect scheduled tasks. All scheduler tools are in the `scheduler` category and require a `TaskScheduler` instance to be configured in the system.
+
+!!! info "Scheduler dependency"
+    The scheduler tools only function when a `TaskScheduler` is wired into the system (via `SystemBuilder`). If no scheduler is configured, all scheduler tool calls return a `success=False` result with a message explaining that the scheduler is unavailable.
+
+### schedule_task
+
+**Registry key:** `schedule_task` | **Category:** `scheduler`
+
+Schedules a new task for future or recurring execution.
+
+**Parameters:**
+
+| Parameter        | Type   | Required | Description                                                                  |
+|------------------|--------|----------|------------------------------------------------------------------------------|
+| `prompt`         | string | Yes      | The query or prompt to execute on schedule                                   |
+| `schedule_type`  | string | Yes      | One of `"cron"`, `"interval"`, or `"once"`                                  |
+| `schedule_value` | string | Yes      | Cron expression, interval in seconds, or ISO 8601 datetime for one-time run |
+| `agent`          | string | No       | Agent to use for execution (default: `"simple"`)                             |
+| `tools`          | string | No       | Comma-separated tool names for the agent (e.g., `"calculator,think"`)       |
+
+**Schedule type examples:**
+
+| `schedule_type` | `schedule_value`       | Meaning                              |
+|-----------------|------------------------|--------------------------------------|
+| `once`          | `"2026-03-01T09:00:00Z"` | Run once at that UTC time           |
+| `interval`      | `"3600"`               | Run every 3600 seconds (1 hour)      |
+| `cron`          | `"0 9 * * 1-5"`        | Run at 09:00 UTC, Monday–Friday      |
+
+**Returns:** JSON with `task_id`, `next_run` (ISO 8601), and `status`.
+
+**Example (via agent tool call):**
+
+```python
+from openjarvis.scheduler.tools import ScheduleTaskTool
+from openjarvis.scheduler.scheduler import TaskScheduler
+from openjarvis.scheduler.store import SchedulerStore
+
+store = SchedulerStore(db_path="~/.openjarvis/scheduler.db")
+scheduler = TaskScheduler(store=store, system=jarvis_system)
+scheduler.start()
+
+tool = ScheduleTaskTool()
+tool._scheduler = scheduler
+
+result = tool.execute(
+    prompt="Summarize the daily news",
+    schedule_type="cron",
+    schedule_value="0 8 * * *",
+    agent="simple",
+)
+# result.content: '{"task_id": "a3f9b12c", "next_run": "2026-02-26T08:00:00+00:00", "status": "active"}'
+```
+
+### list_scheduled_tasks
+
+**Registry key:** `list_scheduled_tasks` | **Category:** `scheduler`
+
+Returns all scheduled tasks, optionally filtered by status.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description                                                          |
+|-----------|--------|----------|----------------------------------------------------------------------|
+| `status`  | string | No       | Filter by status: `"active"`, `"paused"`, `"completed"`, `"cancelled"` |
+
+**Returns:** JSON array of task objects.
+
+### pause_scheduled_task
+
+**Registry key:** `pause_scheduled_task` | **Category:** `scheduler`
+
+Pauses an active scheduled task. The task is preserved and can be resumed later.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description         |
+|-----------|--------|----------|---------------------|
+| `task_id` | string | Yes      | ID of task to pause |
+
+### resume_scheduled_task
+
+**Registry key:** `resume_scheduled_task` | **Category:** `scheduler`
+
+Resumes a paused task. The `next_run` time is recomputed from the current time.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description          |
+|-----------|--------|----------|----------------------|
+| `task_id` | string | Yes      | ID of task to resume |
+
+### cancel_scheduled_task
+
+**Registry key:** `cancel_scheduled_task` | **Category:** `scheduler`
+
+Cancels a task permanently (sets status to `"cancelled"` and clears `next_run`). Cancelled tasks are not executed again.
+
+**Parameters:**
+
+| Parameter | Type   | Required | Description           |
+|-----------|--------|----------|-----------------------|
+| `task_id` | string | Yes      | ID of task to cancel  |
+
 ---
 
 ## Tool Registration

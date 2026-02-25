@@ -62,9 +62,11 @@ Each engine is configured via its own sub-section in `config.toml` (e.g., `[engi
 
 ### Agentic Logic
 
-The Agentic Logic pillar implements **pluggable agents** that handle queries with varying levels of sophistication. The agent hierarchy is organized around `BaseAgent` (ABC with concrete helpers) and `ToolUsingAgent` (intermediate base for agents that accept tools, with `accepts_tools = True`). Seven agent types are available: `SimpleAgent` (single-turn, no tools), `OrchestratorAgent` (multi-turn tool-calling loop with function_calling and structured modes), `NativeReActAgent` (Thought-Action-Observation loop), `NativeOpenHandsAgent` (CodeAct-style code execution), `RLMAgent` (recursive LM with persistent REPL), `OpenHandsAgent` (wraps real `openhands-sdk`), and `OpenClawAgent` (external agent via HTTP or subprocess transport).
+The Agentic Logic pillar implements **pluggable agents** that handle queries with varying levels of sophistication. The agent hierarchy is organized around `BaseAgent` (ABC with concrete helpers) and `ToolUsingAgent` (intermediate base for agents that accept tools, with `accepts_tools = True`). Eight agent types are available: `SimpleAgent` (single-turn, no tools), `OrchestratorAgent` (multi-turn tool-calling loop with function_calling and structured modes), `NativeReActAgent` (Thought-Action-Observation loop), `NativeOpenHandsAgent` (CodeAct-style code execution), `RLMAgent` (recursive LM with persistent REPL), `OpenHandsAgent` (wraps real `openhands-sdk`), `OpenClawAgent` (external agent via HTTP or subprocess transport), and `ClaudeCodeAgent` (Claude Agent SDK via Node.js subprocess).
 
-Agent behavior is configured through `[agent]` in `config.toml`, including the default agent, turn limits, tool list, optional system prompt, and the `context_from_memory` flag (previously `context_injection`) that controls automatic memory context injection. All agents implement the `BaseAgent` ABC with a `run()` method, and are registered via `@AgentRegistry.register("name")`.
+The sandbox module (`openjarvis.sandbox`) adds a `SandboxedAgent` wrapper that runs any `BaseAgent` inside a Docker or Podman container with mount-security enforcement, and a `ContainerRunner` that manages the container lifecycle.
+
+Agent behavior is configured through `[agent]` in `config.toml`, including the default agent, turn limits, tool list, optional system prompt, and the `context_from_memory` flag (previously `context_injection`) that controls automatic memory context injection. Sandbox configuration lives in `[sandbox]`. All agents implement the `BaseAgent` ABC with a `run()` method, and are registered via `@AgentRegistry.register("name")`.
 
 ### Memory
 
@@ -164,6 +166,12 @@ src/openjarvis/
         openclaw_protocol.py  Wire protocol (MessageType, serialize/deserialize)
         openclaw_transport.py Transport ABC, HttpTransport, SubprocessTransport
         openclaw_plugin.py  ProviderPlugin, MemorySearchManager
+        claude_code.py      ClaudeCodeAgent (Claude Agent SDK via Node.js subprocess)
+        claude_code_runner/ Bundled Node.js runner for the Claude Agent SDK
+
+    sandbox/            Container sandbox for isolated agent execution
+        runner.py           ContainerRunner (Docker/Podman lifecycle), SandboxedAgent wrapper
+        mount_security.py   MountAllowlist, validate_mounts() (path security)
 
     memory/             Memory pillar -- persistent searchable storage
         _stubs.py           MemoryBackend ABC, RetrievalResult
@@ -223,6 +231,13 @@ src/openjarvis/
     channels/           Channel messaging
         _stubs.py           BaseChannel ABC, ChannelMessage, ChannelStatus
         openclaw_bridge.py  OpenClawChannelBridge (WS/HTTP bridge)
+        whatsapp_baileys.py WhatsAppBaileysChannel (Baileys protocol via Node.js bridge)
+        whatsapp_baileys_bridge/ Bundled Node.js Baileys bridge
+
+    scheduler/          Task scheduling system
+        scheduler.py        TaskScheduler (cron/interval/once, background polling)
+        store.py            SchedulerStore (SQLite persistence + run logs)
+        tools.py            MCP scheduler tools (schedule_task, list, pause, resume, cancel)
 
     cli/                CLI commands (Click-based)
         ask.py              jarvis ask -- query the assistant
@@ -277,8 +292,9 @@ graph LR
 | `AGENT_TURN_START` / `AGENT_TURN_END` | Agents | Track agent lifecycle |
 | `TELEMETRY_RECORD` | TelemetryStore | Publish telemetry records |
 | `TRACE_STEP` / `TRACE_COMPLETE` | TraceCollector | Trace lifecycle events |
-| `CHANNEL_MESSAGE_RECEIVED` / `CHANNEL_MESSAGE_SENT` | OpenClawChannelBridge | Track channel messaging |
+| `CHANNEL_MESSAGE_RECEIVED` / `CHANNEL_MESSAGE_SENT` | OpenClawChannelBridge, WhatsAppBaileysChannel | Track channel messaging |
 | `SECURITY_SCAN` / `SECURITY_ALERT` / `SECURITY_BLOCK` | GuardrailsEngine | Track security scanning |
+| `scheduler_task_start` / `scheduler_task_end` | TaskScheduler | Track scheduled task execution |
 
 ### Dependency Flow
 

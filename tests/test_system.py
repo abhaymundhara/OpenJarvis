@@ -298,3 +298,73 @@ class TestSystemBuilder:
         builder = SystemBuilder(config).engine("nonexistent_engine_xyz_123")
         with pytest.raises(RuntimeError, match="No inference engine"):
             builder.build()
+
+    def test_builder_sandbox_setter(self):
+        config = JarvisConfig()
+        builder = SystemBuilder(config)
+        result = builder.sandbox(True)
+        assert result is builder  # fluent
+        assert builder._sandbox is True
+
+    def test_builder_scheduler_setter(self):
+        config = JarvisConfig()
+        builder = SystemBuilder(config)
+        result = builder.scheduler(True)
+        assert result is builder  # fluent
+        assert builder._scheduler is True
+
+    def test_builder_sandbox_scheduler_chaining(self):
+        config = JarvisConfig()
+        builder = (
+            SystemBuilder(config)
+            .engine("ollama")
+            .model("test")
+            .sandbox(True)
+            .scheduler(True)
+        )
+        assert builder._sandbox is True
+        assert builder._scheduler is True
+        assert builder._engine_key == "ollama"
+
+
+class TestJarvisSystemClose:
+    def test_close_with_scheduler_store(self):
+        engine = MagicMock()
+        sched_store = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            scheduler_store=sched_store,
+        )
+        system.close()
+        sched_store.close.assert_called_once()
+
+    def test_close_with_scheduler(self):
+        engine = MagicMock()
+        scheduler = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            scheduler=scheduler,
+        )
+        system.close()
+        scheduler.stop.assert_called_once()
+
+    def test_system_fields_default_none(self):
+        engine = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+        )
+        assert system.scheduler_store is None
+        assert system.scheduler is None
+        assert system.container_runner is None

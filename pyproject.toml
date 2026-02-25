@@ -56,6 +56,7 @@ server = [
 ]
 agents = []
 openhands = ["openhands-sdk>=1.0; python_version >= '3.12'"]
+claude-code = []
 gpu-metrics = ["pynvml>=12.0"]
 learning = []
 orchestrator-training = ["torch>=2.0", "transformers>=4.40"]
@@ -74,6 +75,8 @@ channel-matrix = []
 channel-mattermost = []
 channel-feishu = []
 channel-bluebubbles = []
+channel-whatsapp-baileys = []
+scheduler = ["croniter>=2.0"]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
@@ -85,6 +88,10 @@ jarvis = "openjarvis.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openjarvis"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/openjarvis/agents/claude_code_runner" = "openjarvis/agents/claude_code_runner"
+"src/openjarvis/channels/whatsapp_baileys_bridge" = "openjarvis/channels/whatsapp_baileys_bridge"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

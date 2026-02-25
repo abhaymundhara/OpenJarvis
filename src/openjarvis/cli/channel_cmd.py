@@ -10,7 +10,7 @@ from rich.table import Table
 
 _CHANNEL_TYPE_HELP = (
     "Channel type (telegram, discord, slack, webhook, email, "
-    "whatsapp, signal, google_chat, irc, webchat, teams, "
+    "whatsapp, whatsapp_baileys, signal, google_chat, irc, webchat, teams, "
     "matrix, mattermost, feishu, bluebubbles)."
 )
 
@@ -127,6 +127,13 @@ def _get_channel(
             kwargs["url"] = bbc.url
         if bbc.password:
             kwargs["password"] = bbc.password
+    elif key == "whatsapp_baileys":
+        wbc = config.channel.whatsapp_baileys
+        if wbc.auth_dir:
+            kwargs["auth_dir"] = wbc.auth_dir
+        if wbc.assistant_name:
+            kwargs["assistant_name"] = wbc.assistant_name
+        kwargs["assistant_has_own_number"] = wbc.assistant_has_own_number
 
     if not ChannelRegistry.contains(key):
         raise click.ClickException(f"Unknown channel type: {key}")

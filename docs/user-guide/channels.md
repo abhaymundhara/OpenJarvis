@@ -369,6 +369,119 @@ print(f"Total messages received: {len(received_messages)}")
 
 ---
 
+## WhatsAppBaileysChannel
+
+`WhatsAppBaileysChannel` is registered as `"whatsapp_baileys"` in `ChannelRegistry` and provides **bidirectional WhatsApp messaging** using the Baileys protocol. It spawns a Node.js bridge subprocess that handles QR-code authentication, incoming message forwarding, and outbound message delivery.
+
+!!! warning "Node.js 22+ required"
+    The Baileys bridge is a compiled Node.js application bundled inside the package. It is auto-installed to `~/.openjarvis/whatsapp_baileys_bridge/` on first `connect()` call. If `node` is not found on `PATH`, `connect()` logs an error and sets the channel to `ChannelStatus.ERROR`.
+
+!!! note "WhatsApp account required"
+    WhatsApp does not offer an official API for personal accounts. Baileys operates on the WhatsApp Web protocol. You must scan a QR code with your WhatsApp mobile app to authenticate on first use.
+
+### Connecting
+
+```python title="whatsapp_connect.py"
+from openjarvis.channels.whatsapp_baileys import WhatsAppBaileysChannel
+
+channel = WhatsAppBaileysChannel(
+    assistant_name="Jarvis",           # (1)!
+    assistant_has_own_number=False,    # (2)!
+)
+channel.connect()  # spawns the Node.js bridge subprocess
+```
+
+1. Display name used in conversation context.
+2. Set `True` if the assistant has a dedicated WhatsApp number and should not filter its own messages.
+
+On first connection, the bridge will print a QR code to the terminal. Scan it with the WhatsApp app on your phone to authenticate. Authentication state is saved to `~/.openjarvis/whatsapp_baileys_bridge/auth/` and reused on subsequent connections.
+
+### Receiving Messages
+
+```python title="whatsapp_receive.py"
+from openjarvis.channels._stubs import ChannelMessage
+from openjarvis.channels.whatsapp_baileys import WhatsAppBaileysChannel
+
+channel = WhatsAppBaileysChannel()
+
+
+def on_message(msg: ChannelMessage) -> None:
+    print(f"[{msg.sender}] {msg.content}")
+    # msg.conversation_id is the WhatsApp JID (e.g. "15551234567@s.whatsapp.net")
+
+
+channel.on_message(on_message)
+channel.connect()
+
+# Background reader thread is running; your code continues here
+```
+
+### Sending Messages
+
+Messages are addressed by WhatsApp **JID** (Jabber ID) -- the canonical identifier for a WhatsApp contact or group.
+
+```python title="whatsapp_send.py"
+# Individual contact JID format: <country-code><number>@s.whatsapp.net
+# Group JID format: <group-id>@g.us
+
+ok = channel.send(
+    "15551234567@s.whatsapp.net",      # JID of the recipient
+    "Hello from OpenJarvis!",
+)
+
+if not ok:
+    print("Send failed -- check that the bridge is connected")
+```
+
+### Disconnecting
+
+```python title="whatsapp_disconnect.py"
+channel.disconnect()
+# Sends disconnect command to bridge, terminates subprocess, stops reader thread
+```
+
+### Constructor Parameters
+
+| Parameter                  | Type       | Default     | Description                                            |
+|----------------------------|------------|-------------|--------------------------------------------------------|
+| `auth_dir`                 | `str`      | `~/.openjarvis/whatsapp_baileys_bridge/auth` | Baileys auth state directory |
+| `assistant_name`           | `str`      | `"Jarvis"`  | Display name for the assistant                         |
+| `assistant_has_own_number` | `bool`     | `False`     | Whether the assistant has a dedicated WhatsApp number  |
+| `bus`                      | `EventBus` | `None`      | Event bus for publishing channel events                |
+
+### Bridge Events
+
+The Node.js bridge communicates with Python via JSON lines on stdio. Python interprets the following event types:
+
+| Bridge event type | Effect                                                      |
+|-------------------|-------------------------------------------------------------|
+| `status`          | Updates `ChannelStatus` (`connected` / `disconnected`)      |
+| `qr`              | Logs "QR code received -- scan to authenticate"             |
+| `message`         | Dispatches to all registered `on_message` handlers          |
+| `error`           | Logs the error and sets status to `ChannelStatus.ERROR`     |
+
+### Event Bus Integration
+
+When a `bus` is provided, `WhatsAppBaileysChannel` publishes the same events as other channels:
+
+| Event | Published When | Data Keys |
+|-------|----------------|-----------|
+| `CHANNEL_MESSAGE_RECEIVED` | An inbound WhatsApp message arrives | `channel`, `sender`, `content`, `message_id` |
+| `CHANNEL_MESSAGE_SENT` | A message is successfully sent | `channel`, `content`, `conversation_id` |
+
+### Configuration
+
+WhatsApp Baileys channel settings live in the `[channel.whatsapp_baileys]` subsection:
+
+```toml title="~/.openjarvis/config.toml"
+[channel.whatsapp_baileys]
+auth_dir = "/home/user/.openjarvis/whatsapp_baileys_bridge/auth"
+assistant_name = "Jarvis"
+assistant_has_own_number = false
+```
+
+---
+
 ## See Also
 
 - [Architecture: Channels](../architecture/channels.md) — listener loop internals and reconnect design

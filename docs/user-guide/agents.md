@@ -13,6 +13,7 @@ Agents are the agentic logic layer of OpenJarvis. They determine how a query is 
 | `RLMAgent`          | `rlm`             | Yes             | Yes        | Recursive LM with persistent REPL            |
 | `OpenHandsAgent`    | `openhands`       | No              | Yes        | Wraps real openhands-sdk                     |
 | `OpenClawAgent`     | `openclaw`        | Yes             | Yes        | External agent via HTTP or subprocess         |
+| `ClaudeCodeAgent`   | `claude_code`     | No              | Yes        | Claude Agent SDK via Node.js subprocess       |
 
 ---
 
@@ -359,6 +360,144 @@ j.close()
 
 ---
 
+---
+
+## ClaudeCodeAgent
+
+The `ClaudeCodeAgent` wraps the `@anthropic-ai/claude-code` SDK via a bundled Node.js subprocess bridge. Unlike the other agents, inference is handled entirely by the Claude Agent SDK -- the `engine` parameter is accepted only for `BaseAgent` interface conformance and is not used.
+
+!!! warning "Requirements"
+    Requires Node.js 22+ on `PATH` and an `ANTHROPIC_API_KEY` environment variable (or pass `api_key=` directly). The bundled runner is auto-installed to `~/.openjarvis/claude_code_runner/` on first use via `npm install`.
+
+**How it works:**
+
+1. On first call, copies the bundled `claude_code_runner/` to `~/.openjarvis/claude_code_runner/` and runs `npm install --production` if `node_modules` is missing.
+2. Builds a JSON request payload (prompt, API key, workspace, allowed tools, system prompt, session ID) and sends it to `stdin` of a `node dist/index.js` subprocess.
+3. The Node.js runner calls the Claude Agent SDK and writes sentinel-delimited JSON to `stdout`.
+4. The Python side parses the output between `---OPENJARVIS_OUTPUT_START---` and `---OPENJARVIS_OUTPUT_END---` markers, extracting content, tool results, and metadata.
+5. Returns an `AgentResult` with `turns=1`.
+
+**Constructor parameters:**
+
+| Parameter        | Type              | Default             | Description                                      |
+|------------------|-------------------|---------------------|--------------------------------------------------|
+| `engine`         | `InferenceEngine` | --                  | Accepted for interface conformance; not used     |
+| `model`          | `str`             | --                  | Accepted for interface conformance; not used     |
+| `bus`            | `EventBus`        | `None`              | Event bus for telemetry                          |
+| `temperature`    | `float`           | `0.7`               | Accepted for interface conformance; not used     |
+| `max_tokens`     | `int`             | `1024`              | Accepted for interface conformance; not used     |
+| `api_key`        | `str`             | `$ANTHROPIC_API_KEY`| Anthropic API key                                |
+| `workspace`      | `str`             | `os.getcwd()`       | Working directory for the Claude agent           |
+| `session_id`     | `str`             | `""`                | Optional session ID for conversation continuity  |
+| `allowed_tools`  | `list[str]`       | `None` (all)        | Claude Code tool names to allow                  |
+| `system_prompt`  | `str`             | `""`                | Additional system prompt for the agent           |
+| `timeout`        | `int`             | `300`               | Subprocess timeout in seconds                    |
+
+**When to use:** For software engineering tasks where the Claude Agent SDK's built-in tools (code editing, bash execution, file operations) provide capabilities beyond what OpenJarvis tool-calling agents support.
+
+```python
+from openjarvis.agents.claude_code import ClaudeCodeAgent
+
+agent = ClaudeCodeAgent(
+    engine=None,          # not used
+    model="",             # not used
+    workspace="/path/to/project",
+    allowed_tools=["Read", "Write", "Bash"],
+    timeout=120,
+)
+result = agent.run("Add type hints to all functions in utils.py")
+print(result.content)
+```
+
+```bash
+# Via CLI
+jarvis ask --agent claude_code "Refactor the tests to use pytest fixtures"
+```
+
+!!! info "accepts_tools = False"
+    `ClaudeCodeAgent` does not accept OpenJarvis tools via `--tools`. Tool access for the Claude agent is configured separately via the `allowed_tools` constructor parameter, which passes tool names understood by the Claude Agent SDK itself.
+
+---
+
+## SandboxedAgent
+
+`SandboxedAgent` is a transparent wrapper that runs **any** `BaseAgent` inside a Docker (or Podman) container. It follows the same wrapper pattern as `GuardrailsEngine` -- the inner agent's configuration is serialized and sent to the container's stdin, and the result is read back from stdout.
+
+See also the [`ContainerRunner`](#containerrunner) reference below, which manages the container lifecycle.
+
+**How it works:**
+
+1. Builds a JSON payload with the prompt, wrapped agent ID, and model.
+2. Invokes `ContainerRunner.run()`, which starts a container with `--network none` and `--rm`, writes the payload to stdin, and waits for JSON output on stdout.
+3. Mount paths are validated against a configurable allowlist before the container is started.
+4. Parses the sentinel-delimited output and returns an `AgentResult`.
+
+**Constructor parameters:**
+
+| Parameter              | Type              | Default      | Description                                       |
+|------------------------|-------------------|--------------|---------------------------------------------------|
+| `agent`                | `BaseAgent`       | --           | The wrapped agent to execute inside the container |
+| `runner`               | `ContainerRunner` | --           | Container runner managing Docker lifecycle        |
+| `engine`               | `InferenceEngine` | `None`       | Override engine (defaults to wrapped agent's)     |
+| `model`                | `str`             | `""`         | Override model (defaults to wrapped agent's)      |
+| `workspace`            | `str`             | `""`         | Working directory inside the container            |
+| `mounts`               | `list[str]`       | `[]`         | Host paths to bind-mount (read-only)              |
+| `secrets`              | `dict[str, str]`  | `{}`         | Injected into payload (not environment variables) |
+| `bus`                  | `EventBus`        | `None`       | Event bus for telemetry                           |
+
+```python
+from openjarvis.sandbox import ContainerRunner, SandboxedAgent
+from openjarvis.agents.simple import SimpleAgent
+
+runner = ContainerRunner(
+    image="openjarvis-sandbox:latest",
+    timeout=60,
+    mount_allowlist_path="/etc/openjarvis/mount_allowlist.json",
+)
+inner = SimpleAgent(engine, model="qwen3:8b")
+agent = SandboxedAgent(
+    agent=inner,
+    runner=runner,
+    mounts=["/home/user/data"],
+)
+result = agent.run("Summarize the CSV files in /home/user/data")
+```
+
+---
+
+## ContainerRunner
+
+`ContainerRunner` manages the Docker (or Podman) container lifecycle for sandboxed execution. It is used directly by `SandboxedAgent` but can also be used standalone.
+
+**Constructor parameters:**
+
+| Parameter              | Type   | Default                      | Description                                    |
+|------------------------|--------|------------------------------|------------------------------------------------|
+| `image`                | `str`  | `"openjarvis-sandbox:latest"`| Docker image to run                            |
+| `timeout`              | `int`  | `300`                        | Max container execution time in seconds        |
+| `mount_allowlist_path` | `str`  | `""`                         | Path to JSON mount-allowlist file              |
+| `max_concurrent`       | `int`  | `5`                          | Max concurrent containers (informational)      |
+| `runtime`              | `str`  | `"docker"`                   | Container runtime binary (`docker` or `podman`)|
+
+**Mount allowlist format:**
+
+```json title="mount_allowlist.json"
+{
+  "roots": [
+    {"path": "/home/user/projects", "read_only": false},
+    {"path": "/data/shared", "read_only": true}
+  ],
+  "blocked_patterns": [".ssh", ".env", "*.pem", "*.key"]
+}
+```
+
+If `mount_allowlist_path` is not set, no root restriction is applied. Blocked patterns always include `.ssh`, `.env`, `*.pem`, `*.key`, credential files, and cloud config directories by default.
+
+!!! warning "Docker required"
+    `ContainerRunner` raises `RuntimeError` if the configured runtime (`docker` or `podman`) is not found on `PATH`.
+
+---
+
 ## Agent Registration
 
 Agents are registered via the `@AgentRegistry.register()` decorator. This makes them discoverable by name at runtime:
@@ -374,7 +513,80 @@ agent_cls = AgentRegistry.get("orchestrator")
 
 # List all registered agent keys
 AgentRegistry.keys()
-# ["simple", "orchestrator", "native_react", "react", "native_openhands", "rlm", "openhands"]
+# ["simple", "orchestrator", "native_react", "react", "native_openhands",
+#  "rlm", "openhands", "claude_code"]
+```
+
+---
+
+## Using Agents
+
+### Via CLI
+
+```bash
+# Simple agent
+jarvis ask --agent simple "What is the capital of France?"
+
+# Orchestrator with tools
+jarvis ask --agent orchestrator --tools calculator,think "What is sqrt(256)?"
+
+# NativeReActAgent
+jarvis ask --agent native_react --tools calculator "What is 2+2?"
+
+# ReAct alias (same as native_react)
+jarvis ask --agent react --tools calculator,think "Solve step by step: 15% of 340"
+
+# NativeOpenHandsAgent
+jarvis ask --agent native_openhands --tools calculator,web_search "Summarize example.com"
+
+# RLMAgent
+jarvis ask --agent rlm "Summarize this long document"
+
+# OpenHands SDK agent
+jarvis ask --agent openhands "Fix the bug in test_utils.py"
+
+# OpenClaw agent
+jarvis ask --agent openclaw "Tell me a story"
+
+# Claude Code agent (requires Node.js 22+ and ANTHROPIC_API_KEY)
+jarvis ask --agent claude_code "Add docstrings to all functions in utils.py"
+```
+
+### Via Python SDK
+
+```python
+from openjarvis import Jarvis
+
+j = Jarvis()
+
+# Simple agent
+response = j.ask("Hello", agent="simple")
+
+# Orchestrator with tools
+response = j.ask(
+    "Calculate 15% of 340",
+    agent="orchestrator",
+    tools=["calculator"],
+)
+
+# NativeReActAgent with tools
+response = j.ask(
+    "What is sqrt(256)?",
+    agent="native_react",
+    tools=["calculator", "think"],
+)
+
+# Full result with tool details
+result = j.ask_full(
+    "What is the square root of 144?",
+    agent="orchestrator",
+    tools=["calculator", "think"],
+)
+print(result["content"])
+print(result["turns"])
+print(result["tool_results"])
+
+j.close()
 ```
 
 ---
