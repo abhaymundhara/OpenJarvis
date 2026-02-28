@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS telemetry (
     cpu_energy_joules    REAL NOT NULL DEFAULT 0.0,
     gpu_energy_joules    REAL NOT NULL DEFAULT 0.0,
     dram_energy_joules   REAL NOT NULL DEFAULT 0.0,
+    tokens_per_joule     REAL NOT NULL DEFAULT 0.0,
     energy_per_output_token_joules REAL NOT NULL DEFAULT 0.0,
     throughput_per_watt  REAL NOT NULL DEFAULT 0.0,
     prefill_energy_joules REAL NOT NULL DEFAULT 0.0,
@@ -61,6 +62,7 @@ INSERT INTO telemetry (
     throughput_tok_per_sec, prefill_latency_seconds, decode_latency_seconds,
     energy_method, energy_vendor, batch_id, is_warmup,
     cpu_energy_joules, gpu_energy_joules, dram_energy_joules,
+    tokens_per_joule,
     energy_per_output_token_joules, throughput_per_watt,
     prefill_energy_joules, decode_energy_joules,
     mean_itl_ms, median_itl_ms, p90_itl_ms, p95_itl_ms, p99_itl_ms, std_itl_ms,
@@ -70,7 +72,7 @@ INSERT INTO telemetry (
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-    ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?
 )
 """
 
@@ -88,6 +90,7 @@ _MIGRATE_COLUMNS = [
     ("cpu_energy_joules", "REAL NOT NULL DEFAULT 0.0"),
     ("gpu_energy_joules", "REAL NOT NULL DEFAULT 0.0"),
     ("dram_energy_joules", "REAL NOT NULL DEFAULT 0.0"),
+    ("tokens_per_joule", "REAL NOT NULL DEFAULT 0.0"),
     ("energy_per_output_token_joules", "REAL NOT NULL DEFAULT 0.0"),
     ("throughput_per_watt", "REAL NOT NULL DEFAULT 0.0"),
     ("prefill_energy_joules", "REAL NOT NULL DEFAULT 0.0"),
@@ -153,6 +156,7 @@ class TelemetryStore:
                 rec.cpu_energy_joules,
                 rec.gpu_energy_joules,
                 rec.dram_energy_joules,
+                rec.tokens_per_joule,
                 rec.energy_per_output_token_joules,
                 rec.throughput_per_watt,
                 rec.prefill_energy_joules,

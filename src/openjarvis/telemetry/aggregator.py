@@ -24,6 +24,7 @@ class ModelStats:
     total_energy_joules: float = 0.0
     avg_gpu_utilization_pct: float = 0.0
     avg_throughput_tok_per_sec: float = 0.0
+    avg_tokens_per_joule: float = 0.0
     avg_energy_per_output_token_joules: float = 0.0
     avg_throughput_per_watt: float = 0.0
     total_prefill_energy_joules: float = 0.0
@@ -47,6 +48,7 @@ class EngineStats:
     total_energy_joules: float = 0.0
     avg_gpu_utilization_pct: float = 0.0
     avg_throughput_tok_per_sec: float = 0.0
+    avg_tokens_per_joule: float = 0.0
     avg_energy_per_output_token_joules: float = 0.0
     avg_throughput_per_watt: float = 0.0
     total_prefill_energy_joules: float = 0.0
@@ -122,10 +124,15 @@ class TelemetryAggregator:
 
         # Build optional columns for new fields (graceful on old DBs)
         extra_cols = ""
+        has_tpj = self._safe_col("tokens_per_joule")
         has_derived = self._safe_col("energy_per_output_token_joules")
         has_phase = self._safe_col("prefill_energy_joules")
         has_itl = self._safe_col("mean_itl_ms")
 
+        if has_tpj:
+            extra_cols += (
+                ", AVG(tokens_per_joule) AS avg_tokens_per_joule"
+            )
         if has_derived:
             extra_cols += (
                 ", AVG(energy_per_output_token_joules)"
@@ -178,6 +185,8 @@ class TelemetryAggregator:
                 avg_gpu_utilization_pct=r["avg_gpu_utilization_pct"] or 0.0,
                 avg_throughput_tok_per_sec=r["avg_throughput_tok_per_sec"] or 0.0,
             )
+            if has_tpj:
+                ms.avg_tokens_per_joule = r["avg_tokens_per_joule"] or 0.0
             if has_derived:
                 ms.avg_energy_per_output_token_joules = (
                     r["avg_energy_per_output_token_joules"] or 0.0
@@ -206,10 +215,15 @@ class TelemetryAggregator:
         where, params = self._time_filter(since, until)
 
         extra_cols = ""
+        has_tpj = self._safe_col("tokens_per_joule")
         has_derived = self._safe_col("energy_per_output_token_joules")
         has_phase = self._safe_col("prefill_energy_joules")
         has_itl = self._safe_col("mean_itl_ms")
 
+        if has_tpj:
+            extra_cols += (
+                ", AVG(tokens_per_joule) AS avg_tokens_per_joule"
+            )
         if has_derived:
             extra_cols += (
                 ", AVG(energy_per_output_token_joules)"
@@ -258,6 +272,8 @@ class TelemetryAggregator:
                 avg_gpu_utilization_pct=r["avg_gpu_utilization_pct"] or 0.0,
                 avg_throughput_tok_per_sec=r["avg_throughput_tok_per_sec"] or 0.0,
             )
+            if has_tpj:
+                es.avg_tokens_per_joule = r["avg_tokens_per_joule"] or 0.0
             if has_derived:
                 es.avg_energy_per_output_token_joules = (
                     r["avg_energy_per_output_token_joules"] or 0.0
