@@ -12,8 +12,8 @@ except ModuleNotFoundError:
     import tomli as tomllib  # type: ignore[no-redef]
 
 
-# Project-level recipes directory (sibling of src/)
-_PROJECT_RECIPES_DIR = Path(__file__).resolve().parents[3] / "recipes"
+# Built-in recipes directory (package data)
+_PROJECT_RECIPES_DIR = Path(__file__).resolve().parent / "data"
 # User-level recipes directory
 _USER_RECIPES_DIR = Path.home() / ".openjarvis" / "recipes"
 
