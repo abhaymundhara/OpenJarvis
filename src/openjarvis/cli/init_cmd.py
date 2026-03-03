@@ -5,6 +5,8 @@ from __future__ import annotations
 import click
 from rich.console import Console
 from rich.panel import Panel
+from pathlib import Path
+from typing import Optional
 
 from openjarvis.core.config import (
     DEFAULT_CONFIG_DIR,
@@ -113,7 +115,12 @@ def _next_steps_text(engine: str) -> str:
 @click.option(
     "--force", is_flag=True, help="Overwrite existing config without prompting."
 )
-def init(force: bool) -> None:
+@click.option(
+    "--config",
+    type=click.Path(exists=True),
+    help="Path to config file to use.",
+)
+def init(force: bool, config: Optional[Path]) -> None:
     """Detect hardware and generate ~/.openjarvis/config.toml."""
     console = Console()
 
@@ -137,10 +144,16 @@ def init(force: bool) -> None:
     else:
         console.print("  GPU      : none detected")
 
-    toml_content = generate_default_toml(hw)
+    if config:
+        toml_content = config.read_text()
+    else:
+        toml_content = generate_default_toml(hw)
 
     DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    DEFAULT_CONFIG_PATH.write_text(toml_content)
+    if config:
+        config.write_text(toml_content)
+    else:
+        DEFAULT_CONFIG_PATH.write_text(toml_content)
 
     console.print()
     console.print(
@@ -157,3 +170,4 @@ def init(force: bool) -> None:
             border_style="cyan",
         )
     )
+

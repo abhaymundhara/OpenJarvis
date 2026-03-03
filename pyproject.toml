@@ -24,9 +24,6 @@ dev = [
     "respx>=0.22",
     "ruff>=0.4",
 ]
-inference-ollama = []
-inference-vllm = []
-inference-llamacpp = []
 inference-mlx = ["mlx-lm>=0.19; sys_platform == 'darwin'"]
 inference-cloud = [
     "openai>=1.30",
@@ -55,31 +52,15 @@ server = [
     "uvicorn>=0.30",
     "pydantic>=2.0",
 ]
-agents = []
 openhands = ["openhands-sdk>=1.0; python_version >= '3.12'"]
-claude-code = []
 gpu-metrics = ["pynvml>=12.0"]
 energy-amd = ["amdsmi>=6.1"]
 energy-apple = ["zeus-ml[apple]"]
 energy-all = ["pynvml>=12.0", "amdsmi>=6.1", "zeus-ml[apple]"]
-learning = []
 orchestrator-training = ["torch>=2.0", "transformers>=4.40"]
 channel-telegram = ["python-telegram-bot>=21.0"]
 channel-discord = ["discord.py>=2.3"]
 channel-slack = ["slack-sdk>=3.27"]
-channel-webhook = []
-channel-email = []
-channel-whatsapp = []
-channel-signal = []
-channel-google-chat = []
-channel-irc = []
-channel-webchat = []
-channel-teams = []
-channel-matrix = []
-channel-mattermost = []
-channel-feishu = []
-channel-bluebubbles = []
-channel-whatsapp-baileys = []
 channel-line = ["line-bot-sdk>=3.0"]
 channel-viber = ["viberbot>=1.0"]
 channel-messenger = ["pymessenger>=0.0.7"]

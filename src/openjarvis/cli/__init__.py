@@ -14,6 +14,7 @@ from openjarvis.cli.chat_cmd import chat
 from openjarvis.cli.daemon_cmd import restart, start, status, stop
 from openjarvis.cli.doctor_cmd import doctor
 from openjarvis.cli.eval_cmd import eval_group
+from openjarvis.cli.host_cmd import host
 from openjarvis.cli.init_cmd import init
 from openjarvis.cli.memory_cmd import memory
 from openjarvis.cli.model import model
@@ -64,6 +65,7 @@ cli.add_command(vault, "vault")
 cli.add_command(add, "add")
 cli.add_command(operators, "operators")
 cli.add_command(eval_group, "eval")
+cli.add_command(host, "host")
 cli.add_command(quickstart, "quickstart")
 
 
