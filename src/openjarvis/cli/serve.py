@@ -160,6 +160,16 @@ def serve(
             console.print(f"[yellow]Channel failed to start: {exc}[/yellow]")
             channel_bridge = None
 
+    # Set up speech backend
+    speech_backend = None
+    try:
+        from openjarvis.speech._discovery import get_speech_backend
+        speech_backend = get_speech_backend(config)
+        if speech_backend:
+            console.print(f"  Speech: [cyan]{speech_backend.backend_id}[/cyan]")
+    except Exception:
+        pass
+
     # Create app
     from openjarvis.server.app import create_app
 
@@ -167,6 +177,7 @@ def serve(
         engine, model_name, agent=agent, bus=bus,
         engine_name=engine_name, agent_name=agent_key or "",
         channel_bridge=channel_bridge, config=config,
+        speech_backend=speech_backend,
     )
 
     console.print(
