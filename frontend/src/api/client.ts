@@ -20,3 +20,33 @@ export async function fetchServerInfo(): Promise<ServerInfo> {
   if (!res.ok) throw new Error(`Failed to fetch server info: ${res.status}`);
   return res.json();
 }
+
+export interface TranscriptionResult {
+  text: string;
+  language: string | null;
+  confidence: number | null;
+  duration_seconds: number;
+}
+
+export interface SpeechHealth {
+  available: boolean;
+  backend?: string;
+  reason?: string;
+}
+
+export async function transcribeAudio(audioBlob: Blob, filename = 'recording.webm'): Promise<TranscriptionResult> {
+  const formData = new FormData();
+  formData.append('file', audioBlob, filename);
+  const res = await fetch(`${BASE}/v1/speech/transcribe`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Transcription failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchSpeechHealth(): Promise<SpeechHealth> {
+  const res = await fetch(`${BASE}/v1/speech/health`);
+  if (!res.ok) return { available: false };
+  return res.json();
+}
