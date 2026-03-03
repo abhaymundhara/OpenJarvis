@@ -40,6 +40,7 @@ class JarvisSystem:
     session_store: Optional[Any] = None  # SessionStore
     capability_policy: Optional[Any] = None  # CapabilityPolicy
     operator_manager: Optional[Any] = None  # OperatorManager
+    speech_backend: Optional[Any] = None  # SpeechBackend
     _learning_orchestrator: Optional[Any] = None  # LearningOrchestrator
 
     def ask(
@@ -304,6 +305,7 @@ class SystemBuilder:
         self._scheduler: Optional[bool] = None
         self._workflow: Optional[bool] = None
         self._sessions: Optional[bool] = None
+        self._speech: Optional[bool] = None
 
     def engine(self, key: str) -> SystemBuilder:
         self._engine_key = key
@@ -343,6 +345,10 @@ class SystemBuilder:
 
     def sessions(self, enabled: bool) -> SystemBuilder:
         self._sessions = enabled
+        return self
+
+    def speech(self, enabled: bool) -> SystemBuilder:
+        self._speech = enabled
         return self
 
     def event_bus(self, bus: EventBus) -> SystemBuilder:
@@ -447,6 +453,16 @@ class SystemBuilder:
         # Set up learning orchestrator (when training is enabled)
         learning_orchestrator = self._setup_learning_orchestrator(config)
 
+        # Set up speech backend
+        speech_backend = None
+        speech_enabled = self._speech if self._speech is not None else True
+        if speech_enabled:
+            try:
+                from openjarvis.speech._discovery import get_speech_backend
+                speech_backend = get_speech_backend(config)
+            except Exception:
+                pass
+
         system = JarvisSystem(
             config=config,
             bus=bus,
@@ -466,6 +482,7 @@ class SystemBuilder:
             workflow_engine=workflow_engine,
             session_store=session_store,
             capability_policy=capability_policy,
+            speech_backend=speech_backend,
         )
         system._learning_orchestrator = learning_orchestrator
         return system
