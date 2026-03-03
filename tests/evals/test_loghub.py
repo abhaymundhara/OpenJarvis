@@ -77,3 +77,58 @@ class TestLogHubDatasetDetails:
     def test_size_before_load(self) -> None:
         ds = LogHubDataset()
         assert ds.size() == 0
+
+
+from unittest.mock import MagicMock
+from openjarvis.evals.core.types import EvalRecord
+from openjarvis.evals.scorers.loghub_scorer import LogHubScorer
+
+
+def _mock_backend() -> MagicMock:
+    backend = MagicMock()
+    backend.generate.return_value = "A"
+    return backend
+
+
+class TestLogHubScorer:
+    def test_instantiation(self) -> None:
+        s = LogHubScorer(_mock_backend(), "test-model")
+        assert s.scorer_id == "loghub"
+
+    def test_exact_match_anomaly(self) -> None:
+        s = LogHubScorer(_mock_backend(), "test-model")
+        record = EvalRecord(
+            record_id="test-1", problem="analyze logs",
+            reference="anomaly", category="agentic",
+        )
+        is_correct, meta = s.score(record, "ANOMALY\nThe logs show errors.")
+        assert is_correct is True
+        assert meta["match_type"] == "exact"
+
+    def test_exact_match_normal(self) -> None:
+        s = LogHubScorer(_mock_backend(), "test-model")
+        record = EvalRecord(
+            record_id="test-2", problem="analyze logs",
+            reference="normal", category="agentic",
+        )
+        is_correct, meta = s.score(record, "NORMAL - no issues detected")
+        assert is_correct is True
+
+    def test_empty_response(self) -> None:
+        s = LogHubScorer(_mock_backend(), "test-model")
+        record = EvalRecord(
+            record_id="test-3", problem="analyze logs",
+            reference="anomaly", category="agentic",
+        )
+        is_correct, meta = s.score(record, "")
+        assert is_correct is False
+        assert meta["reason"] == "empty_response"
+
+    def test_wrong_classification(self) -> None:
+        s = LogHubScorer(_mock_backend(), "test-model")
+        record = EvalRecord(
+            record_id="test-4", problem="analyze logs",
+            reference="anomaly", category="agentic",
+        )
+        is_correct, meta = s.score(record, "NORMAL - everything looks fine")
+        assert is_correct is False
