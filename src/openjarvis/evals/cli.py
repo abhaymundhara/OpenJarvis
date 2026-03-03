@@ -52,6 +52,7 @@ BENCHMARKS = {
     },
     "loghub": {"category": "agentic", "description": "LogHub log anomaly detection"},
     "ama-bench": {"category": "agentic", "description": "AMA-Bench agent memory assessment"},
+    "lifelong-agent": {"category": "agentic", "description": "LifelongAgentBench sequential task learning"},
 }
 
 BACKENDS = {
@@ -146,6 +147,9 @@ def _build_dataset(benchmark: str):
     elif benchmark == "ama-bench":
         from openjarvis.evals.datasets.ama_bench import AMABenchDataset
         return AMABenchDataset()
+    elif benchmark == "lifelong-agent":
+        from openjarvis.evals.datasets.lifelong_agent import LifelongAgentDataset
+        return LifelongAgentDataset()
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
@@ -202,6 +206,9 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
     elif benchmark == "ama-bench":
         from openjarvis.evals.scorers.ama_bench_judge import AMABenchScorer
         return AMABenchScorer(judge_backend, judge_model)
+    elif benchmark == "lifelong-agent":
+        from openjarvis.evals.scorers.lifelong_agent_scorer import LifelongAgentScorer
+        return LifelongAgentScorer(judge_backend, judge_model)
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 

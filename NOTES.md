@@ -4,16 +4,17 @@ Living document tracking implementation progress, testing state, lessons learned
 
 ---
 
-## Current State (2026-02-21)
+## Current State (2026-03-02)
 
-- **Version:** 1.0.0 (trace system added, targeting v1.1)
-- **All 6 roadmap phases complete** (Phase 0 through Phase 5) + Phase 6 trace system in progress
-- **Tests:** 576 passed, 8 skipped, 0 failures
-- **Lint:** ruff clean (`select = ["E", "F", "I", "W"]`)
-- **Source files:** 76 Python files in `src/openjarvis/`
-- **Test files:** 78 Python files in `tests/`
+- **Version:** 1.0.0 (Phase 23 complete)
+- **All 23 phases complete** — five composable pillars: Intelligence, Engine, Agents, Tools, Learning
+- **Tests:** 3270 passed, 44 skipped, 0 failures
+- **Lint:** 117 pre-existing warnings (0 in recently changed files)
+- **Source files:** ~251 Python files in `src/openjarvis/`
+- **Test files:** ~263 Python files in `tests/`
 - **Python:** 3.13 (compatible with 3.10+)
 - **Package manager:** `uv` with `hatchling` build backend
+- **Root items:** 20 (down from 32 after Session 4 cleanup)
 
 ### 8 Skipped Tests (Optional Dependencies)
 
@@ -41,6 +42,23 @@ Living document tracking implementation progress, testing state, lessons learned
 | Phase 4 | v0.5 | Learning — HeuristicRouter, HeuristicRewardFunction, GRPORouterPolicy stub, TelemetryAggregator, `jarvis telemetry` CLI, `--router` CLI option | ~432 |
 | Phase 5 | v1.0 | SDK (`Jarvis` class), OpenClaw infrastructure (protocol/transport/plugin), benchmarks (`jarvis bench`), Docker, docs | ~520 |
 | Phase 6 | v1.1 | Trace system (TraceStore, TraceCollector, TraceAnalyzer), trace-driven learning (TraceDrivenPolicy) | ~576 |
+| Phase 7 | v1.2 | 5-pillar restructuring, composition layer (SystemBuilder/JarvisSystem), MCP, structured learning | — |
+| Phase 8 | v1.3 | Intelligence = "The Model", routing → Learning pillar, engine selection | — |
+| Phase 9 | v1.4 | Pillar-aligned config, nested TOML configs, config migration | — |
+| Phase 10 | v1.5 | Agent restructuring (BaseAgent/ToolUsingAgent), `accepts_tools`, OpenHands SDK | — |
+| Phase 11 | v1.6 | NanoClaw subsumption: ClaudeCodeAgent, WhatsApp Baileys, Docker sandbox, TaskScheduler | — |
+| Phase 12 | v1.7 | EnergyMonitor ABC (NVIDIA/AMD/Apple/RAPL), EnergyBatch, SteadyStateDetector | — |
+| Phase 13 | v1.8 | `jarvis doctor`/`init`, MLX engine, AMD multi-GPU, PWA, ROCm Docker | — |
+| Phase 14 | v1.9 | Agent hardening: LoopGuard, RBAC CapabilityPolicy, taint tracking, Merkle audit, Ed25519 | — |
+| Phase 15 | v2.0 | WorkflowEngine (DAG), SkillSystem, KnowledgeGraphMemory, SessionStore | — |
+| Phase 16 | v2.1 | A2A protocol, MCP templates, WasmRunner, TUI dashboard | — |
+| Phase 17 | v2.2 | Production tool parity: 40+ tools, SSRF/injection/rate-limit, security middleware | — |
+| Phase 18 | v2.3 | CLI expansion (20 commands), API expansion (40+ endpoints), WebSocket streaming | — |
+| Phase 19 | v2.4 | Learning productionization: GRPO, BanditRouter, SkillDiscovery, ICL updates | — |
+| Phase 20 | v2.5 | Tauri 2.0 desktop app (5 dashboard panels), CI for Linux/macOS/Windows | — |
+| Phase 21 | v2.6 | 10 new channels: LINE, Viber, Messenger, Reddit, Mastodon, XMPP, Rocket.Chat, Zulip, Twitch, Nostr | ~2940 |
+| Phase 22 | v2.7 | Operators: persistent, scheduled autonomous agents with recipe + schedule + channel output | ~2997 |
+| Phase 23 | v2.8 | Differentiated functionalities: trace-driven learning pipeline, 15 real IPW benchmarks, composable recipes, 15 agent templates, 20 bundled skills, 3 operator recipes | ~3270 |
 
 ---
 
@@ -52,22 +70,34 @@ Living document tracking implementation progress, testing state, lessons learned
 src/openjarvis/
 ├── __init__.py          # __version__ = "1.0.0", exports Jarvis, MemoryHandle
 ├── sdk.py               # Python SDK: Jarvis class + MemoryHandle
+├── system.py            # SystemBuilder + JarvisSystem composition layer
 ├── core/
-│   ├── registry.py      # RegistryBase[T] + 7 typed registries
-│   ├── types.py         # Message, Conversation, ModelSpec, ToolResult, TelemetryRecord
+│   ├── registry.py      # RegistryBase[T] + 10 typed registries
+│   ├── types.py         # Message, Conversation, ModelSpec, ToolResult, TelemetryRecord, Trace
 │   ├── config.py        # JarvisConfig dataclass hierarchy, TOML loader
 │   └── events.py        # EventBus pub/sub (synchronous)
-├── intelligence/        # ModelRegistry, HeuristicRouter, model catalog
+├── intelligence/        # ModelRegistry, model catalog, generation defaults
+├── engine/              # Ollama + openai_compat_engines.py (data-driven: vLLM/SGLang/llama.cpp/MLX/LM Studio) + Cloud
+├── agents/              # BaseAgent/ToolUsingAgent hierarchy, 10+ agent types
+├── tools/               # 40+ tools via MCP, storage backends (SQLite/FAISS/ColBERT/BM25/Hybrid/KG)
+├── learning/            # RouterPolicyRegistry, GRPO, Bandit, SFT, ICL, SkillDiscovery
 ├── traces/              # TraceStore, TraceCollector, TraceAnalyzer
-├── learning/            # RouterPolicyRegistry, HeuristicRouter, TraceDrivenPolicy, GRPO stub
-├── memory/              # SQLite/FAISS/ColBERT/BM25/Hybrid backends, chunking, ingest
-├── agents/              # Simple/Orchestrator/Custom/OpenClaw agents + protocol/transport
-├── engine/              # Ollama/vLLM/llama.cpp/Cloud engine wrappers
-├── tools/               # Calculator/Think/Retrieval/LLM/FileRead tools
-├── bench/               # Latency/Throughput benchmarks, BenchmarkSuite
-├── telemetry/           # TelemetryStore, TelemetryAggregator, instrumented_generate
-├── server/              # FastAPI OpenAI-compatible API server
-└── cli/                 # Click CLI: init, ask, serve, model, memory, telemetry, bench
+├── evals/               # 15 IPW benchmarks, EvalRunner, scorer types, CLI
+├── recipes/data/        # Composable TOML recipe configs
+├── templates/data/      # 15 agent template TOML manifests
+├── skills/data/         # 20 bundled skill TOML manifests
+├── operators/data/      # 3 operator recipe TOML manifests
+├── channels/            # 25+ messaging channel backends
+├── bench/               # Latency/Throughput/Energy benchmarks
+├── telemetry/           # TelemetryStore, EnergyMonitor, InstrumentedEngine
+├── security/            # Scanners, RBAC, audit, taint tracking, sandboxing
+├── server/              # FastAPI OpenAI-compatible API server (40+ endpoints)
+├── scheduler/           # Cron/interval task scheduling
+├── workflow/            # DAG-based workflow engine
+├── sessions/            # Cross-channel persistent sessions
+├── sandbox/             # Docker/Wasm sandboxed execution
+├── a2a/                 # Google Agent-to-Agent protocol
+└── cli/                 # Click CLI: 20+ subcommands
 ```
 
 ### 7 Registries
@@ -364,10 +394,10 @@ python -c "from openjarvis import Jarvis; print(Jarvis)"
 
 ### New Memory Backend
 
-1. Create `src/openjarvis/memory/my_backend.py`:
+1. Create `src/openjarvis/tools/storage/my_backend.py`:
    ```python
    from openjarvis.core.registry import MemoryRegistry
-   from openjarvis.memory._stubs import MemoryBackend, RetrievalResult
+   from openjarvis.tools.storage._stubs import MemoryBackend, RetrievalResult
 
    @MemoryRegistry.register("my-backend")
    class MyBackend(MemoryBackend):
@@ -376,7 +406,7 @@ python -c "from openjarvis import Jarvis; print(Jarvis)"
        def delete(self, doc_id) -> bool: ...
        def clear(self) -> None: ...
    ```
-2. Import in `memory/__init__.py` with try/except for optional deps
+2. Import in `tools/storage/__init__.py` with try/except for optional deps
 3. Add test file with `pytest.importorskip()` if using optional deps
 4. Add optional dep group in `pyproject.toml` if needed
 
@@ -490,3 +520,96 @@ python -c "from openjarvis import Jarvis; print(Jarvis)"
 - Updated all markdown documentation (README, VISION, ROADMAP, NOTES, CLAUDE)
 
 **Final: 576 passed, 8 skipped, 0 failures, ruff clean**
+
+### Session 4 (2026-03-02) — Codebase Simplification
+
+**Scope:** Structural cleanup — reduce root sprawl, move data into package, remove shims, consolidate duplicate code
+
+**PR:** [#2](https://github.com/HazyResearch/OpenJarvis/pull/2) — merged to main, 13 commits, 180 files changed
+
+**Root directory:** 32 items → 20 items
+
+**Key changes:**
+
+1. **Removed generated artifacts** — deleted `get-pip.py` (2.2MB), added to `.gitignore`
+
+2. **Docker files → `deploy/docker/`** — moved `Dockerfile`, `Dockerfile.gpu`, `Dockerfile.gpu.rocm`, `Dockerfile.sandbox`, `docker-compose.yml`, `docker-compose.gpu.rocm.yml`. Updated build contexts in compose files from `.` to `../..`
+
+3. **Data files → package data** — moved TOML configs into `src/openjarvis/*/data/` directories:
+   - `recipes/*.toml` → `src/openjarvis/recipes/data/`
+   - `templates/agents/*.toml` → `src/openjarvis/templates/data/`
+   - `skills/builtin/*.toml` → `src/openjarvis/skills/data/`
+   - `operators/*.toml` → `src/openjarvis/operators/data/`
+   - Discovery uses `Path(__file__).resolve().parent / "data"` pattern
+   - Hatchling auto-includes non-Python files in the package tree (no explicit config needed)
+
+4. **Evals → `src/openjarvis/evals/`** — moved entire `evals/` directory (69 files) into the package. All `from evals.` imports rewritten to `from openjarvis.evals.`. Updated `pyproject.toml` ruff per-file-ignores paths. Fixed stale `patch("evals.cli._run_single")` in test_config.py and stale `sys.path.insert` in conftest.py.
+
+5. **Removed `memory/` backward-compat shims** — deleted 11 files that were pure re-exports from `tools/storage/`. Updated all imports across `cli/`, `sdk.py`, `system.py`, and 10+ test files.
+
+6. **Consolidated 5 engine wrappers** — replaced `engine/vllm.py`, `sglang.py`, `llamacpp.py`, `mlx.py`, `lmstudio.py` (near-identical OpenAI-compat wrappers) with single data-driven `engine/openai_compat_engines.py` using `type()` for dynamic class creation from a config dict.
+
+7. **Refactored `channels/__init__.py`** — replaced 26 identical try/except import blocks with `importlib.import_module()` loop (147 → 54 lines).
+
+8. **Updated `CLAUDE.md`** — all path references updated for new structure.
+
+**Stats:**
+- Net code: −274 lines
+- Lint errors: 178 → 117 (all remaining are pre-existing in untouched files)
+- Tests: 3270 passed, 44 skipped, 0 failures
+
+**Gotchas encountered:**
+- `patch()` string targets inside test files aren't caught by `sed` import rewrites — found by spec review
+- Subagent git commits may not persist to main working tree — verify with `git log` after subagent completes
+- `/home/ubuntu/.local/bin/gh` (v0.0.4) shadows `/usr/bin/gh` (v2.4.0) — use full path for GitHub CLI
+
+### Session 5 (2026-03-02) — Phase 23: Differentiated Functionalities
+
+**Scope:** Make OpenJarvis's capabilities genuinely differentiated through trace-driven learning, real benchmarks, composable recipes, and operator recipes.
+
+**PR:** Merged to main via `feat/phase-23-differentiated-functionalities` branch (squashed commit)
+
+**Design:** "Learning Flywheel" approach — traces feed a learning pipeline that mines SFT pairs, fine-tunes models via LoRA, and evolves agent configs. Combined with 15 real academic benchmarks from IPW, composable recipes, and persistent operator agents.
+
+**Implementation plan:** 15 tasks in 5 sections, executed via subagent-driven development with parallel dispatch.
+
+**Work completed:**
+
+1. **Trace-Driven Learning Pipeline (Tasks 1-4):**
+   - `TrainingDataMiner` (`learning/training/data.py`) — extracts SFT, routing, and agent behavior pairs from traces with quality filters (min steps, success-only, dedup)
+   - `LoRATrainer` (`learning/training/lora.py`) — LoRA fine-tuning with configurable rank/alpha/lr, evaluation loop, checkpoint management (requires torch)
+   - `AgentConfigEvolver` (`learning/agent_evolver.py`) — LM-guided analysis of trace patterns to recommend agent config changes (tools, temperature, max_turns, system prompt)
+   - `LearningOrchestrator` (`learning/learning_orchestrator.py`) — coordinates mine→train→evolve cycle on schedule, wired into `SystemBuilder` with lazy import and graceful degradation
+
+2. **Eval Framework — 15 Real IPW Benchmarks (Tasks 5-7):**
+   - Removed toy datasets (MT-Bench, HumanEval, RAG) per user's explicit request
+   - Ported 11 new datasets + scorers from IPW benchmark interface to OpenJarvis `EvalRecord` interface
+   - Key adaptation: IPW loads eagerly in `__init__`, OpenJarvis defers to `load()` method; `DatasetRecord.answer` → `EvalRecord.reference`
+   - MCQ scorers (GPQA, MMLU-Pro): LLM letter extraction
+   - Reasoning scorers (MATH-500, Natural Reasoning, HLE): exact match + `\boxed{}` extraction + LLM fallback
+   - Agentic scorers (SWE-bench, SWEfficiency, TerminalBench Native): structural validation
+   - CLI: `jarvis eval list|run|compare|report`
+
+3. **Composable Abstractions (Tasks 8-10):**
+   - Recipe system (`recipes/loader.py`) — `Recipe` dataclass with `to_builder_kwargs()`, `load_recipe()`, `discover_recipes()`, `resolve_recipe()`
+   - 3 built-in recipes: `coding_assistant` (native_react, temp 0.3), `research_assistant` (orchestrator, 15 turns), `general_assistant` (orchestrator, temp 0.7)
+   - 15 agent templates in TOML: code-reviewer, debugger, architect, deep-researcher, fact-checker, summarizer, inbox-triager, meeting-prep, note-taker, assistant, tutor, translator, writer, data-analyst, security-auditor
+   - 20 bundled skills in TOML across 5 categories: file management, research, code quality, productivity, document processing
+
+4. **Operator Recipes (Tasks 11-13):**
+   - Researcher operator — 4-hour cron cycle, 8 tools, 20 max turns, deep research with memory indexing
+   - Correspondent operator — 5-minute interval, 4 tools, 15 max turns, message triage
+   - Sentinel operator — 2-hour cron cycle, 6 tools, 15 max turns, security/health monitoring
+
+5. **Integration & Wiring (Tasks 14-15):**
+   - Added 6 training config fields to `LearningConfig`: `training_enabled`, `training_schedule`, `lora_rank`, `lora_alpha`, `min_sft_pairs`, `min_improvement`
+   - Wired `LearningOrchestrator` into `SystemBuilder._setup_learning_orchestrator()`
+   - Updated CLAUDE.md for Phase 23
+
+**Files:** 102 changed, ~11,500 lines added
+
+**Merge notes:**
+- Created feature branch from `origin/main`, squashed 19 commits into 1
+- One merge conflict in `src/openjarvis/cli/__init__.py` (both PR #1 and this PR added new CLI commands) — resolved by keeping both `quickstart` and `eval_group`/`operators`
+
+**Final: 3270 passed, 44 skipped, 0 failures**

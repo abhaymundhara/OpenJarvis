@@ -1,0 +1,18 @@
+[operator]
+name = "monitor"
+version = "1.0.0"
+description = "Persistent monitoring operator with recursive decomposition and causal tracking"
+
+[operator.agent]
+max_turns = 25
+temperature = 0.3
+tools = [
+    "think", "file_read", "shell_exec", "code_interpreter",
+    "memory_store", "memory_search", "memory_index",
+    "kg_add_entity", "kg_add_relation", "kg_query", "kg_neighbors",
+    "database_query", "http_request", "web_search",
+]
+
+[operator.schedule]
+type = "interval"
+value = "300"
