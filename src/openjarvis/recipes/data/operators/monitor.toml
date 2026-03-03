@@ -1,18 +1,27 @@
 [operator]
 name = "monitor"
-version = "1.0.0"
-description = "Persistent monitoring operator with recursive decomposition and causal tracking"
+description = "Long-horizon monitoring agent with structured memory extraction, observation compression, hybrid retrieval, and phased task decomposition."
 
 [operator.agent]
-max_turns = 25
-temperature = 0.3
+type = "monitor_operative"
+max_turns = 30
+temperature = 0.2
 tools = [
-    "think", "file_read", "shell_exec", "code_interpreter",
-    "memory_store", "memory_search", "memory_index",
+    "think", "calculator", "code_interpreter",
+    "memory_store", "memory_search", "memory_retrieve",
     "kg_add_entity", "kg_add_relation", "kg_query", "kg_neighbors",
-    "database_query", "http_request", "web_search",
+    "browser_navigate", "browser_click", "browser_type",
+    "browser_extract", "browser_screenshot", "browser_axtree",
+    "file_read", "file_write", "web_search", "http_request",
+    "shell_exec", "db_query",
 ]
 
+[operator.strategies]
+memory_extraction = "causality_graph"
+observation_compression = "summarize"
+retrieval = "hybrid_with_self_eval"
+task_decomposition = "phased"
+
 [operator.schedule]
-type = "interval"
-value = "300"
+type = "cron"
+value = "0 */2 * * *"
