@@ -51,6 +51,7 @@ BENCHMARKS = {
         "description": "TerminalBench Native (Docker)",
     },
     "loghub": {"category": "agentic", "description": "LogHub log anomaly detection"},
+    "ama-bench": {"category": "agentic", "description": "AMA-Bench agent memory assessment"},
 }
 
 BACKENDS = {
@@ -142,6 +143,9 @@ def _build_dataset(benchmark: str):
     elif benchmark == "loghub":
         from openjarvis.evals.datasets.loghub import LogHubDataset
         return LogHubDataset()
+    elif benchmark == "ama-bench":
+        from openjarvis.evals.datasets.ama_bench import AMABenchDataset
+        return AMABenchDataset()
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
@@ -195,6 +199,9 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
     elif benchmark == "loghub":
         from openjarvis.evals.scorers.loghub_scorer import LogHubScorer
         return LogHubScorer(judge_backend, judge_model)
+    elif benchmark == "ama-bench":
+        from openjarvis.evals.scorers.ama_bench_judge import AMABenchScorer
+        return AMABenchScorer(judge_backend, judge_model)
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
