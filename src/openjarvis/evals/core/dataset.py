@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 from openjarvis.evals.core.types import EvalRecord
 
@@ -31,6 +31,16 @@ class DatasetProvider(ABC):
     @abstractmethod
     def size(self) -> int:
         """Return the number of loaded records."""
+
+    def iter_episodes(self) -> Iterable[List[EvalRecord]]:
+        """Iterate over episodes (groups of sequential records).
+
+        Default: each record is its own single-record episode.
+        Override for benchmarks requiring sequential processing
+        with shared agent state within an episode.
+        """
+        for record in self.iter_records():
+            yield [record]
 
 
 __all__ = ["DatasetProvider"]

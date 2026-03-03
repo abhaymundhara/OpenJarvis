@@ -71,6 +71,7 @@ class RunConfig:
     gpu_metrics: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
     warmup_samples: int = 0
+    episode_mode: bool = False
 
 
 @dataclass(slots=True)
