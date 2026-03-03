@@ -132,3 +132,22 @@ class TestLogHubScorer:
         )
         is_correct, meta = s.score(record, "NORMAL - everything looks fine")
         assert is_correct is False
+
+
+class TestLogHubCLI:
+    def test_in_benchmarks_dict(self) -> None:
+        from openjarvis.evals.cli import BENCHMARKS
+        assert "loghub" in BENCHMARKS
+        assert BENCHMARKS["loghub"]["category"] == "agentic"
+
+    def test_build_dataset(self) -> None:
+        from openjarvis.evals.cli import _build_dataset
+        ds = _build_dataset("loghub")
+        assert ds is not None
+        assert ds.dataset_id == "loghub"
+
+    def test_build_scorer(self) -> None:
+        from openjarvis.evals.cli import _build_scorer
+        s = _build_scorer("loghub", _mock_backend(), "test-model")
+        assert s is not None
+        assert s.scorer_id == "loghub"

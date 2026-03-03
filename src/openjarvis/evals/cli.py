@@ -50,6 +50,7 @@ BENCHMARKS = {
         "category": "agentic",
         "description": "TerminalBench Native (Docker)",
     },
+    "loghub": {"category": "agentic", "description": "LogHub log anomaly detection"},
 }
 
 BACKENDS = {
@@ -138,6 +139,9 @@ def _build_dataset(benchmark: str):
             TerminalBenchNativeDataset,
         )
         return TerminalBenchNativeDataset()
+    elif benchmark == "loghub":
+        from openjarvis.evals.datasets.loghub import LogHubDataset
+        return LogHubDataset()
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
@@ -188,6 +192,9 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
             TerminalBenchNativeScorer,
         )
         return TerminalBenchNativeScorer(judge_backend, judge_model)
+    elif benchmark == "loghub":
+        from openjarvis.evals.scorers.loghub_scorer import LogHubScorer
+        return LogHubScorer(judge_backend, judge_model)
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
