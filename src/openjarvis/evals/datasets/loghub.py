@@ -222,6 +222,29 @@ class LogHubDataset(DatasetProvider):
                     has_anomaly = False
                     window_idx += 1
 
+        # Flush remaining lines in partial window
+        if window:
+            reference = "anomaly" if has_anomaly else "normal"
+            log_text = "\n".join(window)
+            problem = (
+                f"{_SYSTEM_PROMPT}\n\n"
+                f"Log window {window_idx} "
+                f"({len(window)} lines):\n```\n{log_text}\n```"
+            )
+            records.append(EvalRecord(
+                record_id=f"loghub-{self._subset}-w{window_idx}",
+                problem=problem,
+                reference=reference,
+                category="agentic",
+                subject=self._subset,
+                metadata={
+                    "window_idx": window_idx,
+                    "num_lines": len(window),
+                    "dataset": self._subset,
+                    "has_anomaly": has_anomaly,
+                },
+            ))
+
         return records
 
 

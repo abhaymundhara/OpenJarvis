@@ -1,5 +1,10 @@
 """Tests for LogHub dataset provider."""
 
+import csv
+from pathlib import Path
+
+import pytest
+
 from openjarvis.evals.datasets.loghub import LogHubDataset
 
 
@@ -14,3 +19,61 @@ class TestLogHubDataset:
         assert hasattr(ds, "load")
         assert hasattr(ds, "iter_records")
         assert hasattr(ds, "size")
+
+
+class TestLogHubDatasetDetails:
+    def test_invalid_subset_raises(self) -> None:
+        with pytest.raises(ValueError, match="Unknown LogHub subset"):
+            LogHubDataset(subset="nonexistent")
+
+    def test_session_mode_parsing(self, tmp_path: Path) -> None:
+        log_file = tmp_path / "HDFS.log"
+        label_file = tmp_path / "anomaly_label.csv"
+
+        log_file.write_text(
+            "081109 event blk_123 info\n"
+            "081109 event blk_123 detail\n"
+            "081109 event blk_456 info\n"
+        )
+        with open(label_file, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["BlockId", "Label"])
+            writer.writeheader()
+            writer.writerow({"BlockId": "blk_123", "Label": "Anomaly"})
+            writer.writerow({"BlockId": "blk_456", "Label": "Normal"})
+
+        ds = LogHubDataset()
+        meta = {"log_file": "HDFS.log", "label_file": "anomaly_label.csv", "mode": "session"}
+        records = ds._load_session_mode(tmp_path, meta)
+
+        assert len(records) == 2
+        by_id = {r.metadata["block_id"]: r for r in records}
+        assert by_id["blk_123"].reference == "anomaly"
+        assert by_id["blk_456"].reference == "normal"
+        assert by_id["blk_123"].category == "agentic"
+
+    def test_window_mode_parsing(self, tmp_path: Path) -> None:
+        log_file = tmp_path / "BGL.log"
+        # 5 lines: 3 normal (start with -), 2 anomalous. Window size 3 = 1 full + 1 partial
+        lines = [
+            "- normal line 1\n",
+            "- normal line 2\n",
+            "FATAL error line\n",
+            "- normal line 3\n",
+            "WARN warning line\n",
+        ]
+        log_file.write_text("".join(lines))
+
+        ds = LogHubDataset(subset="bgl")
+        meta = {"log_file": "BGL.log", "mode": "window", "window_size": 3}
+        records = ds._load_window_mode(tmp_path, meta)
+
+        assert len(records) == 2  # 1 full window + 1 partial
+        assert records[0].reference == "anomaly"  # window 0 has "FATAL" line
+        assert records[0].metadata["window_idx"] == 0
+        # Window 1 has "WARN" line
+        assert records[1].reference == "anomaly"
+        assert records[1].metadata["num_lines"] == 2
+
+    def test_size_before_load(self) -> None:
+        ds = LogHubDataset()
+        assert ds.size() == 0
