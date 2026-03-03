@@ -1,5 +1,6 @@
 import { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
+import type { ReactNode, ErrorInfo } from 'react';
+import { AlertTriangle, RotateCcw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -21,66 +22,39 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, info.componentStack);
+    console.error('ErrorBoundary caught:', error, info);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={styles.container}>
-          <div style={styles.card}>
-            <h2 style={styles.heading}>Something went wrong</h2>
-            <p style={styles.message}>
+        <div className="flex items-center justify-center h-full p-8" style={{ background: 'var(--color-bg)' }}>
+          <div className="text-center max-w-sm">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{ background: 'rgba(220,38,38,0.1)', color: 'var(--color-error)' }}
+            >
+              <AlertTriangle size={24} />
+            </div>
+            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
+              Something went wrong
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <button
-              style={styles.button}
               onClick={() => this.setState({ hasError: false, error: null })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+              style={{ background: 'var(--color-accent)', color: 'white' }}
             >
+              <RotateCcw size={14} />
               Try again
             </button>
           </div>
         </div>
       );
     }
+
     return this.props.children;
   }
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    backgroundColor: '#1a1a1e',
-    color: '#e2e8f0',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
-  },
-  card: {
-    textAlign: 'center' as const,
-    padding: 32,
-    maxWidth: 420,
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: 600,
-    marginBottom: 12,
-  },
-  message: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginBottom: 24,
-    lineHeight: 1.5,
-  },
-  button: {
-    padding: '10px 24px',
-    borderRadius: 8,
-    border: 'none',
-    backgroundColor: '#2563eb',
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 500,
-    cursor: 'pointer',
-  },
-};

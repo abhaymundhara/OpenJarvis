@@ -1,55 +1,164 @@
-import type { Conversation, ModelInfo, SavingsData } from '../../types';
+import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router';
+import {
+  MessageSquare,
+  Plus,
+  BarChart3,
+  Settings,
+  Search,
+  PanelLeftClose,
+  PanelLeft,
+  Cpu,
+} from 'lucide-react';
 import { ConversationList } from './ConversationList';
-import { ModelSelector } from './ModelSelector';
-import { SavingsPanel } from './SavingsPanel';
+import { useAppStore } from '../../lib/store';
 
-interface SidebarProps {
-  isOpen: boolean;
-  conversations: Conversation[];
-  activeId: string | null;
-  models: ModelInfo[];
-  selectedModel: string;
-  savings: SavingsData | null;
-  localModel?: string;
-  onSelectModel: (model: string) => void;
-  onNewChat: () => void;
-  onSelectConversation: (id: string) => void;
-  onDeleteConversation: (id: string) => void;
-}
+export function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchQuery, setSearchQuery] = useState('');
 
-export function Sidebar({
-  isOpen,
-  conversations,
-  activeId,
-  models,
-  selectedModel,
-  savings,
-  localModel,
-  onSelectModel,
-  onNewChat,
-  onSelectConversation,
-  onDeleteConversation,
-}: SidebarProps) {
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+  const createConversation = useAppStore((s) => s.createConversation);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const serverInfo = useAppStore((s) => s.serverInfo);
+  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
+
+  const handleNewChat = () => {
+    createConversation(selectedModel);
+    navigate('/');
+  };
+
+  const navItems = [
+    { path: '/', icon: MessageSquare, label: 'Chat' },
+    { path: '/dashboard', icon: BarChart3, label: 'Dashboard' },
+    { path: '/settings', icon: Settings, label: 'Settings' },
+  ];
+
   return (
-    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <div className="sidebar-header">
-        <h1>OpenJarvis</h1>
-        <button className="new-chat-btn" onClick={onNewChat}>
-          + New Chat
+    <>
+      {/* Collapse button when sidebar is closed */}
+      {!sidebarOpen && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-3 left-3 z-30 p-2 rounded-lg transition-colors cursor-pointer"
+          style={{ color: 'var(--color-text-secondary)', background: 'var(--color-bg-secondary)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+        >
+          <PanelLeft size={18} />
         </button>
-      </div>
-      <ModelSelector
-        models={models}
-        selected={selectedModel}
-        onSelect={onSelectModel}
-      />
-      <ConversationList
-        conversations={conversations}
-        activeId={activeId}
-        onSelect={onSelectConversation}
-        onDelete={onDeleteConversation}
-      />
-      <SavingsPanel savings={savings} localModel={localModel} />
-    </aside>
+      )}
+
+      <aside
+        className={`
+          flex flex-col h-full shrink-0 transition-all duration-200 ease-in-out overflow-hidden
+          fixed md:relative z-30
+          ${sidebarOpen ? 'w-[260px]' : 'w-0'}
+        `}
+        style={{ background: 'var(--color-sidebar)', borderRight: sidebarOpen ? '1px solid var(--color-border)' : 'none' }}
+      >
+        <div className="flex flex-col h-full w-[260px]">
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 pt-3 pb-2">
+            <button
+              onClick={toggleSidebar}
+              className="p-2 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--color-text-secondary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <PanelLeftClose size={18} />
+            </button>
+            <button
+              onClick={handleNewChat}
+              className="p-2 rounded-lg transition-colors cursor-pointer"
+              style={{ color: 'var(--color-text-secondary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              title="New chat"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+
+          {/* Model badge */}
+          <button
+            onClick={() => setCommandPaletteOpen(true)}
+            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
+          >
+            <Cpu size={14} />
+            <span className="truncate flex-1 text-left" style={{ color: 'var(--color-text)' }}>
+              {selectedModel || serverInfo?.model || 'Select model'}
+            </span>
+            <kbd
+              className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+              style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-tertiary)' }}
+            >
+              ⌘K
+            </kbd>
+          </button>
+
+          {/* Search */}
+          <div className="px-3 mb-2">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+              style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+            >
+              <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
+              <input
+                type="text"
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent outline-none text-sm"
+                style={{ color: 'var(--color-text)' }}
+              />
+            </div>
+          </div>
+
+          {/* Conversation list */}
+          <div className="flex-1 overflow-y-auto px-2">
+            <ConversationList searchQuery={searchQuery} />
+          </div>
+
+          {/* Bottom nav */}
+          <nav className="px-2 pb-3 pt-2 flex flex-col gap-0.5" style={{ borderTop: '1px solid var(--color-border)' }}>
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left cursor-pointer"
+                  style={{
+                    background: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
+                    color: isActive ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+    </>
   );
 }

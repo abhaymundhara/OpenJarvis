@@ -10,7 +10,8 @@ export async function* streamChat(
   request: ChatRequest,
   signal?: AbortSignal,
 ): AsyncGenerator<SSEEvent> {
-  const response = await fetch('/v1/chat/completions', {
+  const base = import.meta.env.VITE_API_URL || '';
+  const response = await fetch(`${base}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -41,9 +42,7 @@ export async function* streamChat(
           currentEvent = line.slice(7).trim();
         } else if (line.startsWith('data: ')) {
           const data = line.slice(6);
-          if (data === '[DONE]') {
-            return;
-          }
+          if (data === '[DONE]') return;
           yield { event: currentEvent, data };
           currentEvent = undefined;
         } else if (line.trim() === '') {

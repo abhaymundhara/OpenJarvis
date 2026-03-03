@@ -1,158 +1,251 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Send, Square, Paperclip } from 'lucide-react';
+import { useAppStore, generateId } from '../../lib/store';
+import { streamChat } from '../../lib/sse';
+import type { ChatMessage, ToolCallInfo, TokenUsage } from '../../types';
 
-const COLLAPSE_CHAR_THRESHOLD = 500;
-const COLLAPSE_LINE_THRESHOLD = 6;
-
-function shouldCollapse(text: string): boolean {
-  return (
-    text.length > COLLAPSE_CHAR_THRESHOLD ||
-    text.split('\n').length > COLLAPSE_LINE_THRESHOLD
-  );
-}
-
-function formatSize(text: string): string {
-  const chars = text.length;
-  const lines = text.split('\n').length;
-  if (chars >= 1000) {
-    return `${(chars / 1000).toFixed(1)}k chars, ${lines} line${lines !== 1 ? 's' : ''}`;
-  }
-  return `${chars} chars, ${lines} line${lines !== 1 ? 's' : ''}`;
-}
-
-interface InputAreaProps {
-  onSend: (content: string) => void;
-  onStop: () => void;
-  isStreaming: boolean;
-}
-
-export function InputArea({ onSend, onStop, isStreaming }: InputAreaProps) {
-  // Pasted/long content stored separately as an "attachment"
-  const [attachment, setAttachment] = useState('');
-  // Text typed in the visible textarea
-  const [typed, setTyped] = useState('');
+export function InputArea() {
+  const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fullMessage = attachment ? attachment + '\n' + typed : typed;
+  const activeId = useAppStore((s) => s.activeId);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const streamState = useAppStore((s) => s.streamState);
+  const messages = useAppStore((s) => s.messages);
+  const createConversation = useAppStore((s) => s.createConversation);
+  const addMessage = useAppStore((s) => s.addMessage);
+  const updateLastAssistant = useAppStore((s) => s.updateLastAssistant);
+  const setStreamState = useAppStore((s) => s.setStreamState);
+  const resetStream = useAppStore((s) => s.resetStream);
 
-  const handleSend = useCallback(() => {
-    if (!fullMessage.trim() || isStreaming) return;
-    onSend(fullMessage);
-    setAttachment('');
-    setTyped('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }, [input]);
+
+  const stopStreaming = useCallback(() => {
+    abortRef.current?.abort();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  }, [fullMessage, isStreaming, onSend]);
+    resetStream();
+  }, [resetStream]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const sendMessage = useCallback(async () => {
+    const content = input.trim();
+    if (!content || streamState.isStreaming) return;
+
+    setInput('');
+
+    let convId = activeId;
+    if (!convId) {
+      convId = createConversation(selectedModel);
+    }
+
+    const userMsg: ChatMessage = {
+      id: generateId(),
+      role: 'user',
+      content,
+      timestamp: Date.now(),
+    };
+    addMessage(convId, userMsg);
+
+    // Build API messages before adding assistant placeholder
+    const currentMessages = useAppStore.getState().messages;
+    const apiMessages = currentMessages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const assistantMsg: ChatMessage = {
+      id: generateId(),
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    };
+    addMessage(convId, assistantMsg);
+
+    // Start streaming
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      setStreamState({ elapsedMs: Date.now() - startTime });
+    }, 100);
+    timerRef.current = timer;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let accumulatedContent = '';
+    let usage: TokenUsage | undefined;
+    const toolCalls: ToolCallInfo[] = [];
+
+    setStreamState({
+      isStreaming: true,
+      phase: 'Sending...',
+      elapsedMs: 0,
+      activeToolCalls: [],
+      content: '',
+    });
+
+    try {
+      for await (const sseEvent of streamChat(
+        { model: selectedModel, messages: apiMessages, stream: true },
+        controller.signal,
+      )) {
+        const eventName = sseEvent.event;
+
+        if (eventName === 'agent_turn_start') {
+          setStreamState({ phase: 'Agent thinking...' });
+        } else if (eventName === 'inference_start') {
+          setStreamState({ phase: 'Generating...' });
+        } else if (eventName === 'tool_call_start') {
+          try {
+            const data = JSON.parse(sseEvent.data);
+            const tc: ToolCallInfo = {
+              id: generateId(),
+              tool: data.tool,
+              arguments: data.arguments || '',
+              status: 'running',
+            };
+            toolCalls.push(tc);
+            setStreamState({
+              phase: `Running ${data.tool}...`,
+              activeToolCalls: [...toolCalls],
+            });
+            updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
+          } catch {}
+        } else if (eventName === 'tool_call_end') {
+          try {
+            const data = JSON.parse(sseEvent.data);
+            const tc = toolCalls.find(
+              (t) => t.tool === data.tool && t.status === 'running',
+            );
+            if (tc) {
+              tc.status = data.success ? 'success' : 'error';
+              tc.latency = data.latency;
+              tc.result = data.result;
+            }
+            setStreamState({
+              phase: 'Generating...',
+              activeToolCalls: [...toolCalls],
+            });
+            updateLastAssistant(convId, accumulatedContent, [...toolCalls]);
+          } catch {}
+        } else {
+          try {
+            const data = JSON.parse(sseEvent.data);
+            const delta = data.choices?.[0]?.delta;
+            if (data.usage) usage = data.usage;
+            if (delta?.content) {
+              accumulatedContent += delta.content;
+              setStreamState({ content: accumulatedContent });
+              updateLastAssistant(
+                convId,
+                accumulatedContent,
+                toolCalls.length > 0 ? [...toolCalls] : undefined,
+              );
+            }
+            if (data.choices?.[0]?.finish_reason === 'stop') break;
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        accumulatedContent =
+          accumulatedContent || 'Error: Failed to get response.';
+      }
+    } finally {
+      if (!accumulatedContent) {
+        accumulatedContent = 'No response was generated. Please try again.';
+      }
+      updateLastAssistant(
+        convId,
+        accumulatedContent,
+        toolCalls.length > 0 ? toolCalls : undefined,
+        usage,
+      );
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      resetStream();
+      abortRef.current = null;
+    }
+  }, [
+    input,
+    activeId,
+    selectedModel,
+    streamState.isStreaming,
+    createConversation,
+    addMessage,
+    updateLastAssistant,
+    setStreamState,
+    resetStream,
+  ]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      sendMessage();
     }
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setTyped(newValue);
-    // Auto-resize textarea
-    const ta = e.target;
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
-  };
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      const pasted = e.clipboardData.getData('text');
-      if (shouldCollapse(pasted)) {
-        e.preventDefault();
-        // Store long paste as an attachment pill
-        setAttachment((prev) => (prev ? prev + '\n' + pasted : pasted));
-      }
-      // Short pastes go directly into the textarea as normal
-    },
-    [],
-  );
-
-  const handleClearAttachment = useCallback(() => {
-    setAttachment('');
-    textareaRef.current?.focus();
-  }, []);
-
-  const handleExpandAttachment = useCallback(() => {
-    // Move attachment content back into the textarea
-    setTyped((prev) => (attachment + (prev ? '\n' + prev : '')));
-    setAttachment('');
-    // Let React render, then resize
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height =
-          Math.min(textareaRef.current.scrollHeight, 200) + 'px';
-      }
-    }, 0);
-  }, [attachment]);
-
-  // Focus textarea after attachment changes
-  useEffect(() => {
-    textareaRef.current?.focus();
-  }, [attachment]);
-
   return (
-    <div className="input-area">
-      {attachment && (
-        <div className="input-attachment-row">
-          <div className="pasted-pill">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
-            </svg>
-            <span className="pasted-pill-text">Pasted text</span>
-            <span className="pasted-pill-size">{formatSize(attachment)}</span>
-            <button
-              className="pasted-pill-action"
-              onClick={handleExpandAttachment}
-              title="Expand to edit"
-            >
-              Edit
-            </button>
-            <button
-              className="pasted-pill-action pasted-pill-remove"
-              onClick={handleClearAttachment}
-              title="Remove pasted text"
-            >
-              &times;
-            </button>
-          </div>
-        </div>
-      )}
-      <div className="input-container">
+    <div className="px-4 pb-4 pt-2" style={{ maxWidth: 'var(--chat-max-width)', margin: '0 auto', width: '100%' }}>
+      <div
+        className="flex items-end gap-2 rounded-2xl px-4 py-3 transition-shadow"
+        style={{
+          background: 'var(--color-input-bg)',
+          border: '1px solid var(--color-input-border)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
         <textarea
           ref={textareaRef}
-          value={typed}
-          onChange={handleInput}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder={
-            attachment
-              ? 'Add instructions for the pasted text...'
-              : 'Type a message... (Shift+Enter for new line)'
-          }
-          rows={3}
-          disabled={isStreaming}
+          placeholder="Message OpenJarvis..."
+          rows={1}
+          className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
+          style={{ color: 'var(--color-text)', maxHeight: '200px' }}
+          disabled={streamState.isStreaming}
         />
-        {isStreaming ? (
-          <button className="stop-btn" onClick={onStop}>
-            Stop
+        {streamState.isStreaming ? (
+          <button
+            onClick={stopStreaming}
+            className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer"
+            style={{ background: 'var(--color-error)', color: 'white' }}
+            title="Stop generating"
+          >
+            <Square size={16} />
           </button>
         ) : (
           <button
-            className="send-btn"
-            onClick={handleSend}
-            disabled={!fullMessage.trim()}
+            onClick={sendMessage}
+            disabled={!input.trim()}
+            className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
+            style={{
+              background: input.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
+              color: input.trim() ? 'white' : 'var(--color-text-tertiary)',
+            }}
+            title="Send message"
           >
-            Send
+            <Send size={16} />
           </button>
         )}
+      </div>
+      <div className="flex items-center justify-center mt-2 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+        <span>
+          <kbd className="font-mono">Enter</kbd> to send &middot;{' '}
+          <kbd className="font-mono">Shift+Enter</kbd> for new line
+        </span>
       </div>
     </div>
   );

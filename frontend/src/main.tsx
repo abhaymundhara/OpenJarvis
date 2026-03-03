@@ -1,17 +1,33 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
-import './styles/variables.css';
-import './styles/base.css';
-import './styles/sidebar.css';
-import './styles/chat.css';
-import './styles/input.css';
+import './index.css';
+
+function applyTheme() {
+  try {
+    const raw = localStorage.getItem('openjarvis-settings');
+    const settings = raw ? JSON.parse(raw) : {};
+    const theme = settings.theme || 'system';
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else if (theme === 'light') {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  } catch { /* use system default */ }
+}
+
+applyTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>,
 );

@@ -1,18 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   plugins: [
     react(),
+    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
         name: 'OpenJarvis',
         short_name: 'Jarvis',
         description: 'On-device AI assistant',
-        theme_color: '#1a1a1e',
-        background_color: '#1a1a1e',
+        theme_color: '#09090b',
+        background_color: '#09090b',
         display: 'standalone',
         icons: [
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
@@ -22,12 +24,24 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallbackDenylist: [/^\/v1\//, /^\/health/, /^\/dashboard/],
+        mode: 'development',
       },
     }),
   ],
   build: {
     outDir: '../src/openjarvis/server/static',
     emptyOutDir: true,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          markdown: ['react-markdown', 'rehype-highlight', 'remark-gfm'],
+          charts: ['recharts'],
+          router: ['react-router'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,

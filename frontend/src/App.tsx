@@ -1,103 +1,78 @@
-import { useState, useEffect } from 'react';
-import { Sidebar } from './components/Sidebar/Sidebar';
-import { ChatArea } from './components/Chat/ChatArea';
-import { useConversations } from './hooks/useConversations';
-import { useModels } from './hooks/useModels';
-import { useSavings } from './hooks/useSavings';
-import { useChat } from './hooks/useChat';
-import { useServerInfo } from './hooks/useServerInfo';
+import { useEffect } from 'react';
+import { Routes, Route } from 'react-router';
+import { Layout } from './components/Layout';
+import { ChatPage } from './pages/ChatPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { CommandPalette } from './components/CommandPalette';
+import { useAppStore } from './lib/store';
+import { fetchModels, fetchServerInfo, fetchSavings } from './lib/api';
 
 export default function App() {
-  const { models } = useModels();
-  const { savings, refresh: refreshSavings } = useSavings();
-  const serverInfo = useServerInfo();
-  const {
-    conversations,
-    activeId,
-    activeConversation,
-    createConversation,
-    selectConversation,
-    removeConversation,
-    reload: reloadConversations,
-  } = useConversations();
+  const setModels = useAppStore((s) => s.setModels);
+  const setModelsLoading = useAppStore((s) => s.setModelsLoading);
+  const setSelectedModel = useAppStore((s) => s.setSelectedModel);
+  const selectedModel = useAppStore((s) => s.selectedModel);
+  const setServerInfo = useAppStore((s) => s.setServerInfo);
+  const setSavings = useAppStore((s) => s.setSavings);
+  const settings = useAppStore((s) => s.settings);
+  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
+  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
 
-  const [selectedModel, setSelectedModel] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  // Set default model
+  // Apply theme class to <html>
   useEffect(() => {
-    if (!selectedModel && models.length > 0) {
-      setSelectedModel(models[0].id);
-    }
-  }, [models, selectedModel]);
+    const root = document.documentElement;
+    root.classList.remove('dark', 'light');
+    if (settings.theme === 'dark') root.classList.add('dark');
+    else if (settings.theme === 'light') root.classList.add('light');
+  }, [settings.theme]);
 
-  const {
-    messages,
-    streamState,
-    sendMessage,
-    stopStreaming,
-    reloadMessages,
-  } = useChat(activeId, selectedModel);
-
-  // Reload messages when active conversation changes
+  // Fetch models on mount
   useEffect(() => {
-    reloadMessages();
-  }, [activeId, reloadMessages]);
+    fetchModels()
+      .then((m) => {
+        setModels(m);
+        if (!selectedModel && m.length > 0) setSelectedModel(m[0].id);
+      })
+      .catch(() => setModels([]))
+      .finally(() => setModelsLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleNewChat = () => {
-    createConversation(selectedModel || 'default');
-    reloadMessages();
-  };
+  // Fetch server info
+  useEffect(() => {
+    fetchServerInfo().then(setServerInfo).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSendMessage = async (content: string) => {
-    if (!activeId) {
-      createConversation(selectedModel || 'default');
-      // Need to wait a tick for state to update
-      setTimeout(async () => {
-        reloadConversations();
-        await sendMessage(content);
-        reloadConversations();
-        refreshSavings();
-      }, 0);
-      return;
-    }
-    await sendMessage(content);
-    reloadConversations();
-    refreshSavings();
-  };
+  // Poll savings
+  useEffect(() => {
+    const refresh = () => fetchSavings().then(setSavings).catch(() => {});
+    refresh();
+    const interval = setInterval(refresh, 30000);
+    return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Global Cmd+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(!commandPaletteOpen);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [commandPaletteOpen, setCommandPaletteOpen]);
 
   return (
-    <div className="app">
-      <button
-        className="sidebar-toggle"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label="Toggle sidebar"
-      >
-        {sidebarOpen ? '\u2715' : '\u2630'}
-      </button>
-      <Sidebar
-        isOpen={sidebarOpen}
-        conversations={conversations}
-        activeId={activeId}
-        models={models}
-        selectedModel={selectedModel}
-        savings={savings}
-        localModel={serverInfo?.model}
-        onSelectModel={setSelectedModel}
-        onNewChat={handleNewChat}
-        onSelectConversation={(id) => {
-          selectConversation(id);
-        }}
-        onDeleteConversation={removeConversation}
-      />
-      <ChatArea
-        messages={messages}
-        streamState={streamState}
-        onSendMessage={handleSendMessage}
-        onStopStreaming={stopStreaming}
-        activeConversation={activeConversation}
-        serverInfo={serverInfo}
-      />
-    </div>
+    <>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<ChatPage />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+      </Routes>
+      {commandPaletteOpen && <CommandPalette />}
+    </>
   );
 }

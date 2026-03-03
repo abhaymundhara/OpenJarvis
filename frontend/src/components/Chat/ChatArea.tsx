@@ -1,75 +1,73 @@
-import type { ChatMessage, StreamState, Conversation, ServerInfo } from '../../types';
-import { MessageList } from './MessageList';
-import { StreamingIndicator } from './StreamingIndicator';
+import { useRef, useEffect } from 'react';
+import { MessageBubble } from './MessageBubble';
 import { InputArea } from './InputArea';
+import { StreamingDots } from './StreamingDots';
+import { useAppStore } from '../../lib/store';
+import { Sparkles } from 'lucide-react';
 
-interface ChatAreaProps {
-  messages: ChatMessage[];
-  streamState: StreamState;
-  onSendMessage: (content: string) => void;
-  onStopStreaming: () => void;
-  activeConversation: Conversation | null;
-  serverInfo: ServerInfo | null;
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
-export function ChatArea({
-  messages,
-  streamState,
-  onSendMessage,
-  onStopStreaming,
-  activeConversation,
-  serverInfo,
-}: ChatAreaProps) {
-  // Cumulative token counts for the conversation
-  const totalPrompt = messages.reduce(
-    (sum, m) => sum + (m.usage?.prompt_tokens || 0),
-    0,
-  );
-  const totalCompletion = messages.reduce(
-    (sum, m) => sum + (m.usage?.completion_tokens || 0),
-    0,
-  );
-  const totalTokens = totalPrompt + totalCompletion;
+export function ChatArea() {
+  const messages = useAppStore((s) => s.messages);
+  const streamState = useAppStore((s) => s.streamState);
+  const listRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScroll = useRef(true);
+
+  useEffect(() => {
+    if (shouldAutoScroll.current && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [messages, streamState.content]);
+
+  const handleScroll = () => {
+    if (!listRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = listRef.current;
+    shouldAutoScroll.current = scrollHeight - scrollTop - clientHeight < 100;
+  };
+
+  const isEmpty = messages.length === 0 && !streamState.isStreaming;
 
   return (
-    <main className="chat-area">
-      <div className="chat-header">
-        <div className="chat-header-title">
-          {activeConversation ? activeConversation.title : 'OpenJarvis Chat'}
-        </div>
-        <div className="chat-header-meta">
-          {serverInfo && (
-            <div className="chat-header-info">
-              <span className="header-badge model-badge">
-                {serverInfo.model || 'unknown'}
-              </span>
-              {serverInfo.agent && (
-                <span className="header-badge agent-badge">
-                  {serverInfo.agent}
-                </span>
-              )}
+    <div className="flex flex-col h-full">
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto"
+      >
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center h-full px-4">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: 'var(--color-accent-subtle)', color: 'var(--color-accent)' }}
+            >
+              <Sparkles size={24} />
             </div>
-          )}
-          {totalTokens > 0 && (
-            <div className="chat-header-tokens">
-              {totalPrompt.toLocaleString()} in / {totalCompletion.toLocaleString()} out
-            </div>
-          )}
-        </div>
+            <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
+              {getGreeting()}
+            </h2>
+            <p className="text-sm text-center max-w-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Ask anything. Your AI runs locally — private, fast, and always available.
+            </p>
+          </div>
+        ) : (
+          <div className="max-w-[var(--chat-max-width)] mx-auto px-4 py-6">
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
+            {streamState.isStreaming && streamState.content === '' && (
+              <div className="flex justify-start mb-4">
+                <StreamingDots phase={streamState.phase} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      <MessageList messages={messages} isStreaming={streamState.isStreaming} />
-      {streamState.isStreaming && (
-        <StreamingIndicator
-          phase={streamState.phase}
-          elapsedMs={streamState.elapsedMs}
-          toolCalls={streamState.activeToolCalls}
-        />
-      )}
-      <InputArea
-        onSend={onSendMessage}
-        onStop={onStopStreaming}
-        isStreaming={streamState.isStreaming}
-      />
-    </main>
+      <InputArea />
+    </div>
   );
 }
