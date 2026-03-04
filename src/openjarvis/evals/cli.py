@@ -53,6 +53,11 @@ BENCHMARKS = {
     "loghub": {"category": "agentic", "description": "LogHub log anomaly detection"},
     "ama-bench": {"category": "agentic", "description": "AMA-Bench agent memory assessment"},
     "lifelong-agent": {"category": "agentic", "description": "LifelongAgentBench sequential task learning"},
+    "webchorearena": {"category": "agentic", "description": "WebChoreArena web chore tasks"},
+    "workarena": {
+        "category": "agentic",
+        "description": "WorkArena++ enterprise workflows",
+    },
 }
 
 BACKENDS = {
@@ -150,6 +155,12 @@ def _build_dataset(benchmark: str):
     elif benchmark == "lifelong-agent":
         from openjarvis.evals.datasets.lifelong_agent import LifelongAgentDataset
         return LifelongAgentDataset()
+    elif benchmark == "webchorearena":
+        from openjarvis.evals.datasets.webchorearena import WebChoreArenaDataset
+        return WebChoreArenaDataset()
+    elif benchmark == "workarena":
+        from openjarvis.evals.datasets.workarena import WorkArenaDataset
+        return WorkArenaDataset()
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
@@ -209,6 +220,12 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
     elif benchmark == "lifelong-agent":
         from openjarvis.evals.scorers.lifelong_agent_scorer import LifelongAgentScorer
         return LifelongAgentScorer(judge_backend, judge_model)
+    elif benchmark == "webchorearena":
+        from openjarvis.evals.scorers.webchorearena_scorer import WebChoreArenaScorer
+        return WebChoreArenaScorer(judge_backend, judge_model)
+    elif benchmark == "workarena":
+        from openjarvis.evals.scorers.workarena_scorer import WorkArenaScorer
+        return WorkArenaScorer(judge_backend, judge_model)
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
