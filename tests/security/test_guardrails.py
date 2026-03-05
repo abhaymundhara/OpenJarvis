@@ -123,6 +123,25 @@ class TestGuardrailsEngineInputScanning:
         assert len(alerts) >= 1
         assert any(a.data.get("direction") == "input" for a in alerts)
 
+    def test_redact_input_modifies_messages_sent_to_engine(
+        self,
+    ) -> None:
+        """REDACT mode on input must send redacted messages."""
+        mock = _make_mock_engine("OK")
+        ge = GuardrailsEngine(
+            mock, mode=RedactionMode.REDACT, scan_input=True,
+        )
+
+        secret = "my key sk-abc123def456ghi789jkl012"
+        messages = [Message(role=Role.USER, content=secret)]
+        ge.generate(messages, model="test")
+
+        # Engine should receive redacted content
+        call_args = mock.generate.call_args
+        sent_messages = call_args[0][0]
+        assert "sk-abc123" not in sent_messages[0].content
+        assert "[REDACTED:" in sent_messages[0].content
+
     def test_scan_input_disabled(self) -> None:
         """Input messages are not scanned when scan_input=False."""
         bus = EventBus(record_history=True)

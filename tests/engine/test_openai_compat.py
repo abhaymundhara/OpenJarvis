@@ -46,6 +46,33 @@ class TestOpenAICompatGenerate:
         assert result["content"] == "4"
         assert result["usage"]["total_tokens"] == 9
 
+    def test_empty_choices_returns_graceful_fallback(
+        self, engine: VLLMEngine,
+    ) -> None:
+        with respx.mock:
+            respx.post(
+                "http://testhost:8000/v1/chat/completions"
+            ).mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "choices": [],
+                        "usage": {
+                            "prompt_tokens": 5,
+                            "completion_tokens": 0,
+                            "total_tokens": 5,
+                        },
+                        "model": "test",
+                    },
+                )
+            )
+            result = engine.generate(
+                [Message(role=Role.USER, content="hi")],
+                model="test",
+            )
+        assert result["content"] == ""
+        assert result["finish_reason"] == "error"
+
     def test_generate_connection_error(self, engine: VLLMEngine) -> None:
         with respx.mock:
             respx.post("http://testhost:8000/v1/chat/completions").mock(

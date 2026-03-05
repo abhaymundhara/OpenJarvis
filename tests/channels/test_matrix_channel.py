@@ -25,7 +25,10 @@ class TestRegistration:
         assert ChannelRegistry.contains("matrix")
 
     def test_channel_id(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         assert ch.channel_id == "matrix"
 
 
@@ -37,26 +40,43 @@ class TestInit:
         assert ch._status == ChannelStatus.DISCONNECTED
 
     def test_constructor_param(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         assert ch._homeserver == "https://matrix.example.com"
         assert ch._access_token == "test-token"
 
     def test_env_var_fallback(self):
-        with patch.dict(os.environ, {"MATRIX_HOMESERVER": "https://env.example.com", "MATRIX_ACCESS_TOKEN": "env-token"}):
+        env = {
+            "MATRIX_HOMESERVER": "https://env.example.com",
+            "MATRIX_ACCESS_TOKEN": "env-token",
+        }
+        with patch.dict(os.environ, env):
             ch = MatrixChannel()
             assert ch._homeserver == "https://env.example.com"
             assert ch._access_token == "env-token"
 
     def test_constructor_overrides_env(self):
-        with patch.dict(os.environ, {"MATRIX_HOMESERVER": "https://env.example.com", "MATRIX_ACCESS_TOKEN": "env-token"}):
-            ch = MatrixChannel(homeserver="https://explicit.example.com", access_token="explicit-token")
+        env = {
+            "MATRIX_HOMESERVER": "https://env.example.com",
+            "MATRIX_ACCESS_TOKEN": "env-token",
+        }
+        with patch.dict(os.environ, env):
+            ch = MatrixChannel(
+                homeserver="https://explicit.example.com",
+                access_token="explicit-token",
+            )
             assert ch._homeserver == "https://explicit.example.com"
             assert ch._access_token == "explicit-token"
 
 
 class TestSend:
     def test_send_success(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -71,7 +91,10 @@ class TestSend:
             assert "!room123:example.com" in url
 
     def test_send_failure(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -82,7 +105,10 @@ class TestSend:
             assert result is False
 
     def test_send_exception(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
 
         with patch("httpx.put", side_effect=ConnectionError("refused")):
             result = ch.send("!room123:example.com", "Hello!")
@@ -95,7 +121,11 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token", bus=bus)
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+            bus=bus,
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -109,13 +139,19 @@ class TestSend:
 
 class TestListChannels:
     def test_list_channels(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         assert ch.list_channels() == ["matrix"]
 
 
 class TestStatus:
     def test_disconnected_initially(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         assert ch.status() == ChannelStatus.DISCONNECTED
 
     def test_no_homeserver_connect_error(self):
@@ -126,7 +162,10 @@ class TestStatus:
 
 class TestOnMessage:
     def test_on_message(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         handler = MagicMock()
         ch.on_message(handler)
         assert handler in ch._handlers
@@ -134,7 +173,10 @@ class TestOnMessage:
 
 class TestDisconnect:
     def test_disconnect(self):
-        ch = MatrixChannel(homeserver="https://matrix.example.com", access_token="test-token")
+        ch = MatrixChannel(
+            homeserver="https://matrix.example.com",
+            access_token="test-token",
+        )
         ch._status = ChannelStatus.CONNECTED
         ch.disconnect()
         assert ch.status() == ChannelStatus.DISCONNECTED

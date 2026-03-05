@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from openjarvis.optimize.types import (
-    ObjectiveSpec,
     OptimizationRun,
     SampleScore,
     SearchDimension,

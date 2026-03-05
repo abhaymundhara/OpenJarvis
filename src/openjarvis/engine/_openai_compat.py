@@ -57,7 +57,15 @@ class _OpenAICompatibleEngine(InferenceEngine):
                 f"{self.engine_id} engine not reachable at {self._host}"
             ) from exc
         data = resp.json()
-        choice = data["choices"][0]
+        choices = data.get("choices", [])
+        if not choices:
+            return {
+                "content": "",
+                "usage": data.get("usage", {}),
+                "model": data.get("model", model),
+                "finish_reason": "error",
+            }
+        choice = choices[0]
         usage = data.get("usage", {})
         result: Dict[str, Any] = {
             "content": choice["message"].get("content") or "",

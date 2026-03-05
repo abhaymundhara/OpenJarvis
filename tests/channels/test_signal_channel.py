@@ -55,7 +55,10 @@ class TestInit:
             "SIGNAL_API_URL": "http://env-signal:8080",
             "SIGNAL_PHONE_NUMBER": "+9876543210",
         }):
-            ch = SignalChannel(api_url="http://explicit:8080", phone_number="+1111111111")
+            ch = SignalChannel(
+                api_url="http://explicit:8080",
+                phone_number="+1111111111",
+            )
             assert ch._api_url == "http://explicit:8080"
             assert ch._phone_number == "+1111111111"
 
@@ -97,7 +100,11 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = SignalChannel(api_url="http://localhost:8080", phone_number="+1234567890", bus=bus)
+        ch = SignalChannel(
+            api_url="http://localhost:8080",
+            phone_number="+1234567890",
+            bus=bus,
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200

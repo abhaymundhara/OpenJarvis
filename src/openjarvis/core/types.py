@@ -84,6 +84,8 @@ class Conversation:
 
     def window(self, n: int) -> List[Message]:
         """Return the last *n* messages."""
+        if n <= 0:
+            return []
         return self.messages[-n:]
 
 

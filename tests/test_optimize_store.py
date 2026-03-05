@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from openjarvis.optimize.store import OptimizationStore
 from openjarvis.optimize.types import (
     OptimizationRun,
@@ -361,7 +359,8 @@ class TestClose:
 
 
 class TestNewFieldsPersistence:
-    """Tests for sample_scores, structured_feedback, and pareto_frontier_ids roundtrip."""
+    """Tests for sample_scores, structured_feedback,
+    and pareto_frontier_ids roundtrip."""
 
     def test_sample_scores_roundtrip(self, tmp_path) -> None:
         store = OptimizationStore(tmp_path / "opt.db")

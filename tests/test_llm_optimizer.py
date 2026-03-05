@@ -21,7 +21,6 @@ from openjarvis.optimize.types import (
     TrialResult,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -322,7 +321,10 @@ class TestProposeNext:
         assert "What is 2+2?" in prompt
 
     def test_empty_history(self) -> None:
-        response = '```json\n{"params": {"agent.type": "simple"}, "reasoning": "start simple"}\n```'
+        response = (
+            '```json\n{"params": {"agent.type": "simple"},'
+            ' "reasoning": "start simple"}\n```'
+        )
         backend = _make_mock_backend(response)
         opt = LLMOptimizer(
             search_space=_make_search_space(),
@@ -638,7 +640,7 @@ class TestFormatHistory:
         assert "[FRONTIER]" in result
         # Only t1 should be marked
         lines = result.split("\n")
-        frontier_lines = [l for l in lines if "[FRONTIER]" in l]
+        frontier_lines = [line for line in lines if "[FRONTIER]" in line]
         assert len(frontier_lines) == 1
         assert "t1" in frontier_lines[0]
 
@@ -957,7 +959,11 @@ class TestProposeMerge:
     """Tests for LLMOptimizer.propose_merge."""
 
     def test_includes_candidates_in_prompt(self) -> None:
-        response = '```json\n{"params": {"agent.type": "orchestrator"}, "reasoning": "merged"}\n```'
+        response = (
+            '```json\n{"params": {"agent.type":'
+            ' "orchestrator"}, "reasoning":'
+            ' "merged"}\n```'
+        )
         backend = _make_mock_backend(response)
         opt = LLMOptimizer(
             search_space=_make_search_space(),

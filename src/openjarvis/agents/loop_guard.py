@@ -115,6 +115,16 @@ class LoopGuard:
         """Check whether an agent response indicates a loop. Reserved for future use."""
         return LoopVerdict()
 
+    @staticmethod
+    def _is_system(msg: object) -> bool:
+        """Check if a message has role == system."""
+        return getattr(msg, 'role', None) == 'system'
+
+    @staticmethod
+    def _is_tool(msg: object) -> bool:
+        """Check if a message has role == tool."""
+        return getattr(msg, 'role', None) == 'tool'
+
     def compress_context(self, messages: list) -> list:
         """Apply 4-stage context overflow recovery to message list.
 
@@ -131,17 +141,14 @@ class LoopGuard:
         threshold = len(messages) // 2
         compressed = []
         for i, msg in enumerate(messages):
-            if (
-            i < threshold
-            and hasattr(msg, 'role')
-            and str(getattr(msg, 'role', '')) == 'tool'
-        ):
-                # Replace with truncated version
+            if i < threshold and self._is_tool(msg):
                 from openjarvis.core.types import Message, Role
                 compressed.append(Message(
                     role=Role.TOOL,
                     content="[Tool result truncated]",
-                    tool_call_id=getattr(msg, 'tool_call_id', None),
+                    tool_call_id=getattr(
+                        msg, 'tool_call_id', None,
+                    ),
                     name=getattr(msg, 'name', None),
                 ))
             else:
@@ -150,20 +157,17 @@ class LoopGuard:
         if len(compressed) <= self._config.max_context_messages:
             return compressed
 
-        # Stage 2: Sliding window — keep system messages + recent window
+        # Stage 2: Sliding window — keep system + recent
         system_msgs = [
-            m for m in compressed
-            if hasattr(m, 'role')
-            and str(getattr(m, 'role', '')) == 'system'
+            m for m in compressed if self._is_system(m)
         ]
         non_system = [
             m for m in compressed
-            if not (
-                hasattr(m, 'role')
-                and str(getattr(m, 'role', '')) == 'system'
-            )
+            if not self._is_system(m)
         ]
-        window_size = self._config.max_context_messages - len(system_msgs)
+        window_size = (
+            self._config.max_context_messages - len(system_msgs)
+        )
         if len(non_system) > window_size:
             non_system = non_system[-window_size:]
         compressed = system_msgs + non_system
@@ -172,16 +176,26 @@ class LoopGuard:
             return compressed
 
         # Stage 3: Drop tool call/result pairs from middle
-        # Keep first 10% and last 50%
-        keep_start = max(len(system_msgs), len(compressed) // 10)
+        keep_start = max(
+            len(system_msgs), len(compressed) // 10,
+        )
         keep_end = len(compressed) // 2
-        compressed = compressed[:keep_start] + compressed[-keep_end:]
+        compressed = (
+            compressed[:keep_start] + compressed[-keep_end:]
+        )
 
         if len(compressed) <= self._config.max_context_messages:
             return compressed
 
-        # Stage 4: Extreme — system + last 2 exchanges (4 messages)
-        return system_msgs + non_system[-4:]
+        # Stage 4: Extreme — system + last 2 exchanges
+        sys_final = [
+            m for m in compressed if self._is_system(m)
+        ]
+        tail = [
+            m for m in compressed
+            if not self._is_system(m)
+        ]
+        return sys_final + tail[-4:]
 
     def reset(self) -> None:
         """Reset all tracking state."""

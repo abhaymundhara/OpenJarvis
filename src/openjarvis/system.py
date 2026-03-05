@@ -264,16 +264,20 @@ class JarvisSystem:
         """Release resources."""
         if self.scheduler and hasattr(self.scheduler, "stop"):
             self.scheduler.stop()
-        if self.scheduler_store and hasattr(self.scheduler_store, "close"):
-            self.scheduler_store.close()
-        if self.engine and hasattr(self.engine, "close"):
-            self.engine.close()
-        if self.gpu_monitor and hasattr(self.gpu_monitor, "close"):
-            self.gpu_monitor.close()
-        if self.telemetry_store and hasattr(self.telemetry_store, "close"):
-            self.telemetry_store.close()
-        if self.trace_store and hasattr(self.trace_store, "close"):
-            self.trace_store.close()
+        for resource in (
+            self.scheduler_store,
+            self.engine,
+            self.gpu_monitor,
+            self.telemetry_store,
+            self.trace_store,
+            self.memory_backend,
+            self.session_store,
+            self.channel_backend,
+            self.workflow_engine,
+            self.container_runner,
+        ):
+            if resource and hasattr(resource, "close"):
+                resource.close()
 
     def __enter__(self) -> JarvisSystem:
         return self
@@ -372,55 +376,56 @@ class SystemBuilder:
         # Resolve model
         model = self._resolve_model(config, engine)
 
-        # Wrap with InstrumentedEngine if telemetry enabled
+        # Compute telemetry_enabled once
         telemetry_enabled = (
             self._telemetry if self._telemetry is not None
             else config.telemetry.enabled
         )
         gpu_monitor = None
         energy_monitor = None
-        if telemetry_enabled:
-            from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
+        if telemetry_enabled and config.telemetry.gpu_metrics:
+            # Try new multi-vendor EnergyMonitor first
+            try:
+                from openjarvis.telemetry.energy_monitor import (
+                    create_energy_monitor,
+                )
 
-            if config.telemetry.gpu_metrics:
-                # Try new multi-vendor EnergyMonitor first
+                energy_monitor = create_energy_monitor(
+                    poll_interval_ms=config.telemetry.gpu_poll_interval_ms,
+                    prefer_vendor=config.telemetry.energy_vendor or None,
+                )
+            except ImportError:
+                pass
+
+            # Fall back to legacy GpuMonitor
+            if energy_monitor is None:
                 try:
-                    from openjarvis.telemetry.energy_monitor import (
-                        create_energy_monitor,
-                    )
+                    from openjarvis.telemetry.gpu_monitor import GpuMonitor
 
-                    energy_monitor = create_energy_monitor(
-                        poll_interval_ms=config.telemetry.gpu_poll_interval_ms,
-                        prefer_vendor=config.telemetry.energy_vendor or None,
-                    )
+                    if GpuMonitor.available():
+                        gpu_monitor = GpuMonitor(
+                            poll_interval_ms=config.telemetry.gpu_poll_interval_ms,
+                        )
                 except ImportError:
                     pass
 
-                # Fall back to legacy GpuMonitor if EnergyMonitor not available
-                if energy_monitor is None:
-                    try:
-                        from openjarvis.telemetry.gpu_monitor import GpuMonitor
+        # Apply security guardrails FIRST (innermost wrapper)
+        engine = self._apply_security(config, engine, bus)
 
-                        if GpuMonitor.available():
-                            gpu_monitor = GpuMonitor(
-                                poll_interval_ms=config.telemetry.gpu_poll_interval_ms,
-                            )
-                    except ImportError:
-                        pass
+        # Then wrap with InstrumentedEngine (outermost wrapper)
+        if telemetry_enabled:
+            from openjarvis.telemetry.instrumented_engine import (
+                InstrumentedEngine,
+            )
+
             engine = InstrumentedEngine(
                 engine, bus,
                 gpu_monitor=gpu_monitor,
                 energy_monitor=energy_monitor,
             )
 
-        # Apply security guardrails to engine
-        engine = self._apply_security(config, engine, bus)
-
-        # Set up telemetry
+        # Set up telemetry store
         telemetry_store = None
-        telemetry_enabled = (
-            self._telemetry if self._telemetry is not None else config.telemetry.enabled
-        )
         if telemetry_enabled:
             telemetry_store = self._setup_telemetry(config, bus)
 

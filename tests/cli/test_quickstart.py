@@ -31,11 +31,31 @@ class TestQuickstartCommand:
             patch("openjarvis.cli.quickstart_cmd.detect_hardware", return_value=hw),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_PATH", config_path),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_DIR", tmp_path),
-            patch("openjarvis.cli.quickstart_cmd.generate_default_toml", return_value="[engine]\n"),
-            patch("openjarvis.cli.quickstart_cmd.recommend_engine", return_value="ollama"),
-            patch("openjarvis.cli.quickstart_cmd._check_engine_health", return_value=True),
-            patch("openjarvis.cli.quickstart_cmd._check_model_available", return_value=True),
-            patch("openjarvis.cli.quickstart_cmd._test_query", return_value="Hello!"),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".generate_default_toml",
+                return_value="[engine]\n",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".recommend_engine",
+                return_value="ollama",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_engine_health",
+                return_value=True,
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_model_available",
+                return_value=True,
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._test_query",
+                return_value="Hello!",
+            ),
         ):
             runner = CliRunner()
             result = runner.invoke(cli, ["quickstart"])
@@ -58,16 +78,39 @@ class TestQuickstartCommand:
             patch("openjarvis.cli.quickstart_cmd.detect_hardware", return_value=hw),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_PATH", config_path),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_DIR", tmp_path),
-            patch("openjarvis.cli.quickstart_cmd.generate_default_toml", return_value="[engine]\n"),
-            patch("openjarvis.cli.quickstart_cmd.recommend_engine", return_value="ollama"),
-            patch("openjarvis.cli.quickstart_cmd._check_engine_health", return_value=True),
-            patch("openjarvis.cli.quickstart_cmd._check_model_available", return_value=True),
-            patch("openjarvis.cli.quickstart_cmd._test_query", return_value="Hello!"),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".generate_default_toml",
+                return_value="[engine]\n",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".recommend_engine",
+                return_value="ollama",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_engine_health",
+                return_value=True,
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_model_available",
+                return_value=True,
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._test_query",
+                return_value="Hello!",
+            ),
         ):
             runner = CliRunner()
             result = runner.invoke(cli, ["quickstart"])
             assert result.exit_code == 0
-            assert "already exists" in result.output.lower() or "skip" in result.output.lower()
+            assert (
+                "already exists" in result.output.lower()
+                or "skip" in result.output.lower()
+            )
 
     def test_force_regenerates_config(self, tmp_path):
         """--force should regenerate config even if it exists."""
@@ -84,10 +127,26 @@ class TestQuickstartCommand:
             patch("openjarvis.cli.quickstart_cmd.detect_hardware", return_value=hw),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_PATH", config_path),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_DIR", tmp_path),
-            patch("openjarvis.cli.quickstart_cmd.generate_default_toml", return_value="[engine]\nnew = true\n"),
-            patch("openjarvis.cli.quickstart_cmd.recommend_engine", return_value="ollama"),
-            patch("openjarvis.cli.quickstart_cmd._check_engine_health", return_value=True),
-            patch("openjarvis.cli.quickstart_cmd._check_model_available", return_value=True),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".generate_default_toml",
+                return_value="[engine]\nnew = true\n",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".recommend_engine",
+                return_value="ollama",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_engine_health",
+                return_value=True,
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_model_available",
+                return_value=True,
+            ),
             patch("openjarvis.cli.quickstart_cmd._test_query", return_value="Hello!"),
         ):
             runner = CliRunner()
@@ -109,11 +168,26 @@ class TestQuickstartCommand:
             patch("openjarvis.cli.quickstart_cmd.detect_hardware", return_value=hw),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_PATH", config_path),
             patch("openjarvis.cli.quickstart_cmd.DEFAULT_CONFIG_DIR", tmp_path),
-            patch("openjarvis.cli.quickstart_cmd.generate_default_toml", return_value="[engine]\n"),
-            patch("openjarvis.cli.quickstart_cmd.recommend_engine", return_value="ollama"),
-            patch("openjarvis.cli.quickstart_cmd._check_engine_health", return_value=False),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".generate_default_toml",
+                return_value="[engine]\n",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                ".recommend_engine",
+                return_value="ollama",
+            ),
+            patch(
+                "openjarvis.cli.quickstart_cmd"
+                "._check_engine_health",
+                return_value=False,
+            ),
         ):
             runner = CliRunner()
             result = runner.invoke(cli, ["quickstart"])
             assert result.exit_code == 1
-            assert "engine" in result.output.lower() or "not reachable" in result.output.lower()
+            assert (
+                "engine" in result.output.lower()
+                or "not reachable" in result.output.lower()
+            )

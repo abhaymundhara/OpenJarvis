@@ -117,7 +117,10 @@ BUILTIN_MODELS: List[ModelSpec] = [
         provider="teichai",
         metadata={
             "architecture": "moe",
-            "hf_repo": "TeichAI/GLM-4.7-Flash-Claude-Opus-4.5-High-Reasoning-Distill-GGUF",
+            "hf_repo": (
+                "TeichAI/GLM-4.7-Flash-Claude-"
+                "Opus-4.5-High-Reasoning-Distill-GGUF"
+            ),
             "teacher": "Claude Opus 4.5",
             "quantization": "GGUF Q4_K_M / Q8_0",
             "license": "apache-2.0",

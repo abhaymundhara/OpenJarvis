@@ -92,14 +92,21 @@ class OllamaEngine(InferenceEngine):
         # Extract tool calls if present
         raw_tool_calls = data.get("message", {}).get("tool_calls", [])
         if raw_tool_calls:
-            result["tool_calls"] = [
-                {
+            tool_calls = []
+            for i, tc in enumerate(raw_tool_calls):
+                raw_args = tc.get("function", {}).get(
+                    "arguments", "{}",
+                )
+                tool_calls.append({
                     "id": tc.get("id", f"call_{i}"),
                     "name": tc.get("function", {}).get("name", ""),
-                    "arguments": tc.get("function", {}).get("arguments", "{}"),
-                }
-                for i, tc in enumerate(raw_tool_calls)
-            ]
+                    "arguments": (
+                        json.dumps(raw_args)
+                        if isinstance(raw_args, dict)
+                        else raw_args
+                    ),
+                })
+            result["tool_calls"] = tool_calls
         return result
 
     async def stream(

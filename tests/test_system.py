@@ -356,6 +356,48 @@ class TestJarvisSystemClose:
         system.close()
         scheduler.stop.assert_called_once()
 
+    def test_close_with_memory_backend(self):
+        engine = MagicMock()
+        mem = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            memory_backend=mem,
+        )
+        system.close()
+        mem.close.assert_called_once()
+
+    def test_close_with_session_store(self):
+        engine = MagicMock()
+        sess = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            session_store=sess,
+        )
+        system.close()
+        sess.close.assert_called_once()
+
+    def test_close_with_workflow_engine(self):
+        engine = MagicMock()
+        wf = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            workflow_engine=wf,
+        )
+        system.close()
+        wf.close.assert_called_once()
+
     def test_system_fields_default_none(self):
         engine = MagicMock()
         system = JarvisSystem(

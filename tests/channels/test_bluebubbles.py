@@ -42,14 +42,25 @@ class TestInit:
         assert ch._password == "test-pass"
 
     def test_env_var_fallback(self):
-        with patch.dict(os.environ, {"BLUEBUBBLES_URL": "http://env:1234", "BLUEBUBBLES_PASSWORD": "env-pass"}):
+        env = {
+            "BLUEBUBBLES_URL": "http://env:1234",
+            "BLUEBUBBLES_PASSWORD": "env-pass",
+        }
+        with patch.dict(os.environ, env):
             ch = BlueBubblesChannel()
             assert ch._url == "http://env:1234"
             assert ch._password == "env-pass"
 
     def test_constructor_overrides_env(self):
-        with patch.dict(os.environ, {"BLUEBUBBLES_URL": "http://env:1234", "BLUEBUBBLES_PASSWORD": "env-pass"}):
-            ch = BlueBubblesChannel(url="http://explicit:1234", password="explicit-pass")
+        env = {
+            "BLUEBUBBLES_URL": "http://env:1234",
+            "BLUEBUBBLES_PASSWORD": "env-pass",
+        }
+        with patch.dict(os.environ, env):
+            ch = BlueBubblesChannel(
+                url="http://explicit:1234",
+                password="explicit-pass",
+            )
             assert ch._url == "http://explicit:1234"
             assert ch._password == "explicit-pass"
 
@@ -98,7 +109,11 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = BlueBubblesChannel(url="http://localhost:1234", password="test-pass", bus=bus)
+        ch = BlueBubblesChannel(
+            url="http://localhost:1234",
+            password="test-pass",
+            bus=bus,
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200

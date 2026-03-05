@@ -196,15 +196,27 @@ class TestRLMSubLMCalls:
         # Third call: root LM gets REPL output, returns final (no code)
         engine.generate.side_effect = [
             {
-                "content": "```python\nresult = llm_query('What is 2+2?')\nFINAL(result)\n```",
-                "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
+                "content": (
+                    "```python\n"
+                    "result = llm_query('What is 2+2?')\n"
+                    "FINAL(result)\n```"
+                ),
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 10,
+                    "total_tokens": 15,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
             # Sub-LM response for llm_query
             {
                 "content": "4",
-                "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
+                "usage": {
+                    "prompt_tokens": 3,
+                    "completion_tokens": 1,
+                    "total_tokens": 4,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
@@ -224,15 +236,28 @@ class TestRLMMultiTurn:
         engine.generate.side_effect = [
             # Turn 1: code that sets a variable
             {
-                "content": "```python\nx = 10\nprint(f'x = {x}')\n```",
-                "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
+                "content": (
+                    "```python\n"
+                    "x = 10\nprint(f'x = {x}')\n```"
+                ),
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 10,
+                    "total_tokens": 15,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
             # Turn 2: code that uses the variable and terminates
             {
-                "content": "```python\ny = x * 2\nFINAL(y)\n```",
-                "usage": {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30},
+                "content": (
+                    "```python\ny = x * 2\nFINAL(y)\n```"
+                ),
+                "usage": {
+                    "prompt_tokens": 20,
+                    "completion_tokens": 10,
+                    "total_tokens": 30,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
@@ -309,8 +334,16 @@ class TestRLMSubLMWithTools:
         engine.generate.side_effect = [
             # Root LM: code that calls llm_query
             {
-                "content": "```python\nresult = llm_query('Calculate 2+2')\nFINAL(result)\n```",
-                "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
+                "content": (
+                    "```python\n"
+                    "result = llm_query('Calculate 2+2')\n"
+                    "FINAL(result)\n```"
+                ),
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 10,
+                    "total_tokens": 15,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
@@ -318,16 +351,28 @@ class TestRLMSubLMWithTools:
             {
                 "content": "",
                 "tool_calls": [
-                    {"id": "sub_0", "name": "calculator", "arguments": '{"expression":"2+2"}'},
+                    {
+                        "id": "sub_0",
+                        "name": "calculator",
+                        "arguments": '{"expression":"2+2"}',
+                    },
                 ],
-                "usage": {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8},
+                "usage": {
+                    "prompt_tokens": 3,
+                    "completion_tokens": 5,
+                    "total_tokens": 8,
+                },
                 "model": "test-model",
                 "finish_reason": "tool_calls",
             },
             # Sub-LM follow-up after tool result
             {
                 "content": "The answer is 4.",
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
@@ -345,14 +390,22 @@ class TestRLMBlockedCode:
             # Code with blocked pattern
             {
                 "content": "```python\nos.system('ls')\n```",
-                "usage": {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15},
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 10,
+                    "total_tokens": 15,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },
             # After error feedback, model gives direct answer
             {
                 "content": "I apologize, let me answer directly.",
-                "usage": {"prompt_tokens": 15, "completion_tokens": 5, "total_tokens": 20},
+                "usage": {
+                    "prompt_tokens": 15,
+                    "completion_tokens": 5,
+                    "total_tokens": 20,
+                },
                 "model": "test-model",
                 "finish_reason": "stop",
             },

@@ -101,6 +101,9 @@ class OrchestratorAgent(ToolUsingAgent):
         for _turn in range(self._max_turns):
             turns += 1
 
+            if self._loop_guard:
+                messages = self._loop_guard.compress_context(messages)
+
             result = self._generate(messages)
             content = result.get("content", "")
 
@@ -216,6 +219,9 @@ class OrchestratorAgent(ToolUsingAgent):
 
         for _turn in range(self._max_turns):
             turns += 1
+
+            if self._loop_guard:
+                messages = self._loop_guard.compress_context(messages)
 
             # Build generate kwargs
             gen_kwargs: dict[str, Any] = {}

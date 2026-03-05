@@ -150,7 +150,9 @@ def serve(
                     tools = []
                     for name in ToolRegistry.keys():
                         tool_cls = ToolRegistry.get(name)
-                        if isinstance(tool_cls, type) and issubclass(tool_cls, BaseTool):
+                        if isinstance(tool_cls, type) and issubclass(
+                            tool_cls, BaseTool
+                        ):
                             tools.append(tool_cls())
                         elif isinstance(tool_cls, BaseTool):
                             tools.append(tool_cls)

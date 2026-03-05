@@ -172,20 +172,22 @@ class GuardrailsEngine(InferenceEngine):
         """Scan input, call wrapped engine, scan output."""
         # Scan input messages
         if self._scan_input:
-            for msg in messages:
+            processed = list(messages)
+            for i, msg in enumerate(processed):
                 if msg.content:
                     result = self._scan_text(msg.content)
                     if not result.clean:
-                        msg = Message(
+                        processed[i] = Message(
                             role=msg.role,
                             content=self._handle_findings(
-                                msg.content, result, "input"
+                                msg.content, result, "input",
                             ),
                             name=msg.name,
                             tool_calls=msg.tool_calls,
                             tool_call_id=msg.tool_call_id,
                             metadata=msg.metadata,
                         )
+            messages = processed
 
         # Call wrapped engine
         response = self._engine.generate(

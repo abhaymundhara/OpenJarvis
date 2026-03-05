@@ -152,7 +152,10 @@ def print_metrics_table(console: Console, summary: RunSummary) -> None:
     console.print(headline)
 
 
-def _stats_table(title: str, rows: list[tuple[str, Optional[MetricStats], int]]) -> Table:
+def _stats_table(
+    title: str,
+    rows: list[tuple[str, Optional[MetricStats], int]],
+) -> Table:
     """Build a stats table with Avg/Median/Min/Max/Std columns."""
     table = Table(
         title=f"[bold]{title}[/bold]",
@@ -192,7 +195,10 @@ def print_accuracy_panel(console: Console, summary: RunSummary) -> None:
         scored = int(stats.get("scored", 0))
         lines.append(f"  {subj:<20s} {acc:.1%}  ({correct}/{scored})")
     body = "\n".join(lines)
-    panel = Panel(body, title="[bold]Accuracy[/bold]", border_style="green", expand=False)
+    panel = Panel(
+        body, title="[bold]Accuracy[/bold]",
+        border_style="green", expand=False,
+    )
     console.print(panel)
 
 
@@ -244,7 +250,11 @@ def print_trace_summary(console: Console, summary: RunSummary) -> None:
     if not sts:
         return
     total_steps = sum(s.get("count", 0) for s in sts.values())
-    avg_per_sample = total_steps / summary.scored_samples if summary.scored_samples > 0 else 0
+    avg_per_sample = (
+        total_steps / summary.scored_samples
+        if summary.scored_samples > 0
+        else 0
+    )
 
     table = Table(
         title="[bold]Agentic Trace Summary[/bold]",
@@ -252,7 +262,10 @@ def print_trace_summary(console: Console, summary: RunSummary) -> None:
         header_style="bold bright_white",
         border_style="bright_blue",
         title_style="bold cyan",
-        caption=f"Total Steps: {total_steps}  |  Avg Steps/Sample: {avg_per_sample:.1f}",
+        caption=(
+            f"Total Steps: {total_steps}"
+            f"  |  Avg Steps/Sample: {avg_per_sample:.1f}"
+        ),
     )
     table.add_column("Step Type", style="cyan", no_wrap=True)
     table.add_column("Count", justify="right")

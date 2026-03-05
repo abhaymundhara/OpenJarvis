@@ -90,6 +90,31 @@ class TestLoopGuard:
         result = guard.compress_context(messages)
         assert len(result) <= 10
 
+    def test_context_compression_stage4_uses_current_state(self):
+        """Stage 4 should derive from compressed state."""
+        from openjarvis.core.types import Message, Role
+        guard, _ = self._make_guard(max_context_messages=5)
+        messages = [
+            Message(role=Role.SYSTEM, content="sys"),
+        ] + [
+            Message(role=Role.USER, content=f"msg {i}")
+            for i in range(100)
+        ] + [
+            Message(
+                role=Role.TOOL,
+                content=f"result {i}",
+                tool_call_id=f"t{i}",
+            )
+            for i in range(100)
+        ]
+        result = guard.compress_context(messages)
+        assert len(result) == 5
+        system_count = sum(
+            1 for m in result
+            if getattr(m, 'role', None) == 'system'
+        )
+        assert system_count == 1
+
     def test_check_response_returns_unblocked(self):
         guard, _ = self._make_guard()
         v = guard.check_response("some content")

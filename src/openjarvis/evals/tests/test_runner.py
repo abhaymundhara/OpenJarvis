@@ -381,7 +381,10 @@ class TestRunnerTokenStats:
     def test_summary_has_total_input_output_tokens(self, tmp_path):
         """RunSummary should include total token counts."""
         records = [
-            EvalRecord(record_id=f"r{i}", problem=f"q{i}", reference="a", category="test")
+            EvalRecord(
+                record_id=f"r{i}", problem=f"q{i}",
+                reference="a", category="test",
+            )
             for i in range(3)
         ]
         output_path = tmp_path / "results.jsonl"

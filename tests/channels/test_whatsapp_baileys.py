@@ -276,7 +276,13 @@ class TestReaderLoop:
 
         lines = [
             json.dumps({"type": "status", "status": "connected"}) + "\n",
-            json.dumps({"type": "message", "jid": "j", "sender": "s", "text": "t", "message_id": "m"}) + "\n",
+            json.dumps({
+                "type": "message",
+                "jid": "j",
+                "sender": "s",
+                "text": "t",
+                "message_id": "m",
+            }) + "\n",
         ]
 
         mock_proc = MagicMock()

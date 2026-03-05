@@ -17,11 +17,10 @@ from openjarvis.core.config import (
 def _check_engine_health(engine_key: str) -> bool:
     """Return True if the recommended engine is reachable."""
     try:
+        import openjarvis.engine  # noqa: F401 — trigger registration
         from openjarvis.core.config import load_config
         from openjarvis.core.registry import EngineRegistry
         from openjarvis.engine import _discovery
-
-        import openjarvis.engine  # noqa: F401 — trigger registration
 
         config = load_config()
         if engine_key not in EngineRegistry.keys():
@@ -86,7 +85,10 @@ def quickstart(force: bool) -> None:
     console.print()
     console.print("[bold cyan][2/5][/bold cyan] Writing config...")
     if DEFAULT_CONFIG_PATH.exists() and not force:
-        console.print(f"  [dim]Config already exists at {DEFAULT_CONFIG_PATH} (skip)[/dim]")
+        console.print(
+            f"  [dim]Config already exists at"
+            f" {DEFAULT_CONFIG_PATH} (skip)[/dim]"
+        )
     else:
         toml_content = generate_default_toml(hw)
         DEFAULT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -100,7 +102,7 @@ def quickstart(force: bool) -> None:
         console.print(f"  [red bold]Engine '{engine_key}' is not reachable.[/red bold]")
         console.print()
         console.print(f"  Start the {engine_key} server and try again.")
-        console.print(f"  Run [bold]jarvis doctor[/bold] for detailed diagnostics.")
+        console.print("  Run [bold]jarvis doctor[/bold] for detailed diagnostics.")
         raise SystemExit(1)
     console.print(f"  [green]Engine '{engine_key}' is healthy.[/green]")
 
@@ -120,4 +122,7 @@ def quickstart(force: bool) -> None:
     console.print(f"  [green]Response:[/green] {response[:200]}")
 
     console.print()
-    console.print("[bold green]Setup complete![/bold green] Try: [bold]jarvis ask \"Hello\"[/bold]")
+    console.print(
+        '[bold green]Setup complete![/bold green]'
+        ' Try: [bold]jarvis ask "Hello"[/bold]'
+    )

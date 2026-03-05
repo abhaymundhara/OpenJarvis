@@ -54,6 +54,12 @@ class TestConversation:
         assert len(conv.messages) == 3
         assert [m.content for m in conv.window(2)] == ["b", "c"]
 
+    def test_window_zero_returns_empty(self) -> None:
+        conv = Conversation()
+        conv.add(Message(role=Role.USER, content="a"))
+        conv.add(Message(role=Role.ASSISTANT, content="b"))
+        assert conv.window(0) == []
+
     def test_max_messages(self) -> None:
         conv = Conversation(max_messages=2)
         for i in range(5):

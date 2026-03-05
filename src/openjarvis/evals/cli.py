@@ -21,7 +21,6 @@ from openjarvis.evals.core.display import (
     print_banner,
     print_completion,
     print_full_results,
-    print_metrics_table,
     print_run_header,
     print_section,
     print_subject_table,
@@ -392,8 +391,14 @@ def main():
               help="Enable telemetry collection during eval")
 @click.option("--gpu-metrics/--no-gpu-metrics", default=False,
               help="Enable GPU metrics collection")
-@click.option("--compact", is_flag=True, default=False, help="Dense single-table output")
-@click.option("--trace-detail", is_flag=True, default=False, help="Full per-step trace listing")
+@click.option(
+    "--compact", is_flag=True, default=False,
+    help="Dense single-table output",
+)
+@click.option(
+    "--trace-detail", is_flag=True, default=False,
+    help="Full per-step trace listing",
+)
 @click.option("--wandb-project", default="",
               help="W&B project name (enables tracking)")
 @click.option("--wandb-entity", default="",

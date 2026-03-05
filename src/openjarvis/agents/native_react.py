@@ -110,6 +110,9 @@ class NativeReActAgent(ToolUsingAgent):
         for _turn in range(self._max_turns):
             turns += 1
 
+            if self._loop_guard:
+                messages = self._loop_guard.compress_context(messages)
+
             result = self._generate(messages)
 
             content = result.get("content", "")

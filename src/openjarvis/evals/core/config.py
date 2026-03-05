@@ -124,7 +124,11 @@ def load_eval_config(path: str | Path) -> EvalSuiteConfig:
             temperature=float(m["temperature"]) if "temperature" in m else None,
             max_tokens=int(m["max_tokens"]) if "max_tokens" in m else None,
             param_count_b=float(m.get("param_count_b", 0.0)),
-            active_params_b=float(m["active_params_b"]) if "active_params_b" in m else None,
+            active_params_b=(
+                float(m["active_params_b"])
+                if "active_params_b" in m
+                else None
+            ),
             gpu_peak_tflops=float(m.get("gpu_peak_tflops", 0.0)),
             gpu_peak_bandwidth_gb_s=float(m.get("gpu_peak_bandwidth_gb_s", 0.0)),
             num_gpus=int(m.get("num_gpus", 1)),

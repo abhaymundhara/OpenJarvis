@@ -42,13 +42,21 @@ class TestInit:
         assert ch._app_password == "test-pass"
 
     def test_env_var_fallback(self):
-        with patch.dict(os.environ, {"TEAMS_APP_ID": "env-id", "TEAMS_APP_PASSWORD": "env-pass"}):
+        env = {
+            "TEAMS_APP_ID": "env-id",
+            "TEAMS_APP_PASSWORD": "env-pass",
+        }
+        with patch.dict(os.environ, env):
             ch = TeamsChannel()
             assert ch._app_id == "env-id"
             assert ch._app_password == "env-pass"
 
     def test_constructor_overrides_env(self):
-        with patch.dict(os.environ, {"TEAMS_APP_ID": "env-id", "TEAMS_APP_PASSWORD": "env-pass"}):
+        env = {
+            "TEAMS_APP_ID": "env-id",
+            "TEAMS_APP_PASSWORD": "env-pass",
+        }
+        with patch.dict(os.environ, env):
             ch = TeamsChannel(app_id="explicit-id", app_password="explicit-pass")
             assert ch._app_id == "explicit-id"
             assert ch._app_password == "explicit-pass"

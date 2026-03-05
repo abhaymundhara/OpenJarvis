@@ -55,7 +55,10 @@ class TestInit:
             "WHATSAPP_ACCESS_TOKEN": "env-token",
             "WHATSAPP_PHONE_NUMBER_ID": "env-id",
         }):
-            ch = WhatsAppChannel(access_token="explicit-token", phone_number_id="explicit-id")
+            ch = WhatsAppChannel(
+                access_token="explicit-token",
+                phone_number_id="explicit-id",
+            )
             assert ch._token == "explicit-token"
             assert ch._phone_number_id == "explicit-id"
 
@@ -101,7 +104,11 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = WhatsAppChannel(access_token="test-token", phone_number_id="12345", bus=bus)
+        ch = WhatsAppChannel(
+            access_token="test-token",
+            phone_number_id="12345",
+            bus=bus,
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200

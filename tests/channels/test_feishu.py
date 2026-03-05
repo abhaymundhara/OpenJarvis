@@ -42,13 +42,21 @@ class TestInit:
         assert ch._app_secret == "test-secret"
 
     def test_env_var_fallback(self):
-        with patch.dict(os.environ, {"FEISHU_APP_ID": "env-id", "FEISHU_APP_SECRET": "env-secret"}):
+        env = {
+            "FEISHU_APP_ID": "env-id",
+            "FEISHU_APP_SECRET": "env-secret",
+        }
+        with patch.dict(os.environ, env):
             ch = FeishuChannel()
             assert ch._app_id == "env-id"
             assert ch._app_secret == "env-secret"
 
     def test_constructor_overrides_env(self):
-        with patch.dict(os.environ, {"FEISHU_APP_ID": "env-id", "FEISHU_APP_SECRET": "env-secret"}):
+        env = {
+            "FEISHU_APP_ID": "env-id",
+            "FEISHU_APP_SECRET": "env-secret",
+        }
+        with patch.dict(os.environ, env):
             ch = FeishuChannel(app_id="explicit-id", app_secret="explicit-secret")
             assert ch._app_id == "explicit-id"
             assert ch._app_secret == "explicit-secret"

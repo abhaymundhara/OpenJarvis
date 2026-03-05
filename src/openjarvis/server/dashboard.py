@@ -266,7 +266,9 @@ function fmtNum(n) {
 }
 
 function fmtDollar(n) {
-  if (n >= 1000) return '$' + n.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  if (n >= 1000) return '$' + n.toLocaleString(
+    'en-US', {minimumFractionDigits: 2,
+              maximumFractionDigits: 2});
   if (n >= 1) return '$' + n.toFixed(2);
   if (n >= 0.01) return '$' + n.toFixed(3);
   if (n > 0) return '$' + n.toFixed(4);
@@ -292,30 +294,44 @@ async function refresh() {
     const d = await resp.json();
 
     document.getElementById('total-calls').textContent = fmtNum(d.total_calls);
-    document.getElementById('prompt-tokens').textContent = fmtNum(d.total_prompt_tokens);
-    document.getElementById('completion-tokens').textContent = fmtNum(d.total_completion_tokens);
-    document.getElementById('total-tokens').textContent = fmtNum(d.total_tokens);
+    document.getElementById('prompt-tokens')
+      .textContent = fmtNum(d.total_prompt_tokens);
+    document.getElementById('completion-tokens')
+      .textContent = fmtNum(d.total_completion_tokens);
+    document.getElementById('total-tokens')
+      .textContent = fmtNum(d.total_tokens);
 
     const providerMap = {};
-    (d.per_provider || []).forEach(p => { providerMap[p.provider] = p; });
+    (d.per_provider || []).forEach(p => {
+      providerMap[p.provider] = p;
+    });
 
     // OpenAI / GPT 5.2
     const oa = providerMap['gpt-5.2'] || {};
-    document.getElementById('save-openai').textContent = fmtDollar(oa.total_cost || 0);
-    document.getElementById('save-openai-in').textContent = fmtDollar(oa.input_cost || 0);
-    document.getElementById('save-openai-out').textContent = fmtDollar(oa.output_cost || 0);
+    document.getElementById('save-openai')
+      .textContent = fmtDollar(oa.total_cost || 0);
+    document.getElementById('save-openai-in')
+      .textContent = fmtDollar(oa.input_cost || 0);
+    document.getElementById('save-openai-out')
+      .textContent = fmtDollar(oa.output_cost || 0);
 
     // Anthropic / Claude Opus 4.6
     const an = providerMap['claude-opus-4.6'] || {};
-    document.getElementById('save-anthropic').textContent = fmtDollar(an.total_cost || 0);
-    document.getElementById('save-anthropic-in').textContent = fmtDollar(an.input_cost || 0);
-    document.getElementById('save-anthropic-out').textContent = fmtDollar(an.output_cost || 0);
+    document.getElementById('save-anthropic')
+      .textContent = fmtDollar(an.total_cost || 0);
+    document.getElementById('save-anthropic-in')
+      .textContent = fmtDollar(an.input_cost || 0);
+    document.getElementById('save-anthropic-out')
+      .textContent = fmtDollar(an.output_cost || 0);
 
     // Google / Gemini 3.1 Pro
     const go = providerMap['gemini-3.1-pro'] || {};
-    document.getElementById('save-google').textContent = fmtDollar(go.total_cost || 0);
-    document.getElementById('save-google-in').textContent = fmtDollar(go.input_cost || 0);
-    document.getElementById('save-google-out').textContent = fmtDollar(go.output_cost || 0);
+    document.getElementById('save-google')
+      .textContent = fmtDollar(go.total_cost || 0);
+    document.getElementById('save-google-in')
+      .textContent = fmtDollar(go.input_cost || 0);
+    document.getElementById('save-google-out')
+      .textContent = fmtDollar(go.output_cost || 0);
 
     // Energy / FLOPs (use GPT 5.2 as reference)
     const ej = oa.energy_joules || 0;
@@ -323,15 +339,25 @@ async function refresh() {
     const fl = oa.flops || 0;
     const co2 = (eWh / 1000) * 390; // grams CO2 (US grid avg 0.39 kg/kWh)
 
-    document.getElementById('energy-joules').innerHTML = fmtEnergy(ej) + ' <span class="munit"></span>';
-    document.getElementById('energy-kwh').textContent =
-      (eWh / 1000).toFixed(4) + ' kWh of cloud datacenter energy avoided';
-    document.getElementById('flops-val').innerHTML = fmt(fl) + ' <span class="munit"></span>';
-    document.getElementById('flops-sub').textContent = 'cloud compute operations not needed';
-    document.getElementById('co2-val').innerHTML = fmtCO2(co2) + ' <span class="munit"></span>';
+    document.getElementById('energy-joules')
+      .innerHTML = fmtEnergy(ej) +
+      ' <span class="munit"></span>';
+    document.getElementById('energy-kwh')
+      .textContent = (eWh / 1000).toFixed(4) +
+      ' kWh of cloud datacenter energy avoided';
+    document.getElementById('flops-val')
+      .innerHTML = fmt(fl) +
+      ' <span class="munit"></span>';
+    document.getElementById('flops-sub')
+      .textContent =
+      'cloud compute operations not needed';
+    document.getElementById('co2-val')
+      .innerHTML = fmtCO2(co2) +
+      ' <span class="munit"></span>';
 
   } catch (e) {
-    document.getElementById('status-text').textContent = 'Connection error — retrying...';
+    document.getElementById('status-text')
+      .textContent = 'Connection error — retrying...';
   }
 }
 

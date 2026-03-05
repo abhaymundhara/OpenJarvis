@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 from openjarvis.core.types import StepType, Trace, TraceStep
 from openjarvis.optimize.feedback.judge import TraceJudge, _parse_score
 
-
 # ---------------------------------------------------------------------------
 # _parse_score unit tests
 # ---------------------------------------------------------------------------
@@ -92,7 +91,9 @@ class TestScoreTrace:
 
     def test_returns_score_and_feedback(self) -> None:
         backend = MagicMock()
-        backend.generate.return_value = "Score: 0.85\nGood reasoning and correct answer."
+        backend.generate.return_value = (
+            "Score: 0.85\nGood reasoning and correct answer."
+        )
         judge = TraceJudge(backend=backend, model="judge-model")
 
         trace = _make_trace()

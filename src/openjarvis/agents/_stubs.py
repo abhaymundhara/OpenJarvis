@@ -183,7 +183,10 @@ class BaseAgent(ABC):
         begins directly with reasoning text followed by ``</think>``.
         """
         # Full <think>...</think> blocks
-        text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(
+            r"<think>.*?</think>\s*", "", text,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
         # Leading content before a bare </think> (no opening tag)
         text = re.sub(r"^.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
         return text.strip()

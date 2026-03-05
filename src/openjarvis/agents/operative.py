@@ -105,6 +105,9 @@ class OperativeAgent(ToolUsingAgent):
         for _turn in range(self._max_turns):
             turns += 1
 
+            if self._loop_guard:
+                messages = self._loop_guard.compress_context(messages)
+
             gen_kwargs: dict[str, Any] = {}
             if openai_tools:
                 gen_kwargs["tools"] = openai_tools

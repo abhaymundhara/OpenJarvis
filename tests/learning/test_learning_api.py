@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI
-from starlette.testclient import TestClient
+import pytest
 
-from openjarvis.server.api_routes import learning_router
+fastapi = pytest.importorskip("fastapi")
+starlette = pytest.importorskip("starlette")
+
+from fastapi import FastAPI  # noqa: E402
+from starlette.testclient import TestClient  # noqa: E402
+
+from openjarvis.server.api_routes import learning_router  # noqa: E402
 
 
 def _make_app() -> FastAPI:

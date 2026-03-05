@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock
@@ -19,7 +18,6 @@ from openjarvis.optimize.personal.synthesizer import (
     PersonalBenchmarkSynthesizer,
 )
 from openjarvis.traces.store import TraceStore
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -121,24 +119,38 @@ class TestPersonalBenchmarkSynthesizer:
 
     def test_grouping_by_query_class(self, trace_store: TraceStore) -> None:
         """Same agent + same query prefix -> same group, so only one sample."""
-        trace_store.save(
-            _make_trace(trace_id="t1", query="What is 2+2?", agent="simple", feedback=0.8),
-        )
-        trace_store.save(
-            _make_trace(trace_id="t2", query="What is 2+2?", agent="simple", feedback=0.95),
-        )
+        trace_store.save(_make_trace(
+            trace_id="t1",
+            query="What is 2+2?",
+            agent="simple",
+            feedback=0.8,
+        ))
+        trace_store.save(_make_trace(
+            trace_id="t2",
+            query="What is 2+2?",
+            agent="simple",
+            feedback=0.95,
+        ))
         synth = PersonalBenchmarkSynthesizer(trace_store)
         bm = synth.synthesize()
         # Should collapse into one sample (same group)
         assert len(bm.samples) == 1
 
     def test_picks_highest_feedback_per_group(self, trace_store: TraceStore) -> None:
-        trace_store.save(
-            _make_trace(trace_id="t1", query="Tell me a joke", agent="simple", feedback=0.7, result="bad joke"),
-        )
-        trace_store.save(
-            _make_trace(trace_id="t2", query="Tell me a joke", agent="simple", feedback=0.99, result="great joke"),
-        )
+        trace_store.save(_make_trace(
+            trace_id="t1",
+            query="Tell me a joke",
+            agent="simple",
+            feedback=0.7,
+            result="bad joke",
+        ))
+        trace_store.save(_make_trace(
+            trace_id="t2",
+            query="Tell me a joke",
+            agent="simple",
+            feedback=0.99,
+            result="great joke",
+        ))
         synth = PersonalBenchmarkSynthesizer(trace_store)
         bm = synth.synthesize()
         assert len(bm.samples) == 1
@@ -150,9 +162,12 @@ class TestPersonalBenchmarkSynthesizer:
         trace_store.save(
             _make_trace(trace_id="t1", query="Hello", agent="simple", feedback=0.9),
         )
-        trace_store.save(
-            _make_trace(trace_id="t2", query="Hello", agent="orchestrator", feedback=0.8),
-        )
+        trace_store.save(_make_trace(
+            trace_id="t2",
+            query="Hello",
+            agent="orchestrator",
+            feedback=0.8,
+        ))
         synth = PersonalBenchmarkSynthesizer(trace_store)
         bm = synth.synthesize()
         assert len(bm.samples) == 2

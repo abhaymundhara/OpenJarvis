@@ -85,10 +85,16 @@ class WebSearchTool(BaseTool):
         resp.raise_for_status()
         content_type = resp.headers.get("content-type", "")
         if "application/pdf" in content_type:
-            return f"[This URL points to a PDF file which cannot be read directly. URL: {url}]"
+            return (
+                "[This URL points to a PDF file which"
+                f" cannot be read directly. URL: {url}]"
+            )
         html = resp.text
         # Strip script/style tags and their contents
-        html = _re.sub(r"<(script|style)[^>]*>.*?</\1>", "", html, flags=_re.DOTALL | _re.IGNORECASE)
+        html = _re.sub(
+            r"<(script|style)[^>]*>.*?</\1>", "", html,
+            flags=_re.DOTALL | _re.IGNORECASE,
+        )
         # Strip HTML tags
         text = _re.sub(r"<[^>]+>", " ", html)
         # Collapse whitespace

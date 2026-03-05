@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 try:
     import tomllib
@@ -147,7 +146,9 @@ class TestOptimizationEngineRun:
         )
         optimizer.propose_initial.return_value = initial_config
         optimizer.propose_next.return_value = second_config
-        optimizer.analyze_trial.return_value = TrialFeedback(summary_text="analysis text")
+        optimizer.analyze_trial.return_value = TrialFeedback(
+            summary_text="analysis text",
+        )
         optimizer.optimizer_model = "test-model"
 
         runner.run_trial.return_value = _sample_trial_result(
@@ -213,7 +214,9 @@ class TestOptimizationEngineRun:
         optimizer.propose_initial.return_value = TrialConfig(
             trial_id="t1", params={},
         )
-        optimizer.analyze_trial.return_value = TrialFeedback(summary_text="detailed analysis")
+        optimizer.analyze_trial.return_value = TrialFeedback(
+            summary_text="detailed analysis",
+        )
         optimizer.optimizer_model = "m"
         runner.run_trial.return_value = _sample_trial_result("t1", 0.8)
         runner.benchmark = "b"
@@ -733,7 +736,7 @@ class TestTargetedAndMerge:
             trial_runner=runner,
             max_trials=4,
         )
-        run = engine.run()
+        engine.run()
 
         # After trial 2 (trial_num=3, > 2), targeted should be used
         assert optimizer.propose_targeted.called
@@ -779,7 +782,7 @@ class TestTargetedAndMerge:
             trial_runner=runner,
             max_trials=6,
         )
-        run = engine.run()
+        engine.run()
 
         # Merge should be triggered at trial_num=5
         assert optimizer.propose_merge.called

@@ -203,6 +203,38 @@ class TestOllamaToolCalls:
         )
         assert "tools" in captured["body"]
 
+    def test_dict_arguments_serialized_to_json(self, respx_mock):
+        """Ollama returns arguments as dict — engine must serialize."""
+        respx_mock.post(
+            "http://localhost:11434/api/chat"
+        ).mock(
+            return_value=httpx.Response(200, json={
+                "message": {
+                    "content": "",
+                    "tool_calls": [{
+                        "function": {
+                            "name": "calculator",
+                            "arguments": {"expression": "3*3"},
+                        },
+                    }],
+                },
+                "model": "test",
+                "prompt_eval_count": 5,
+                "eval_count": 3,
+            })
+        )
+        engine = OllamaEngine()
+        result = engine.generate(
+            [Message(role=Role.USER, content="3*3")],
+            model="test",
+        )
+        assert "tool_calls" in result
+        tc = result["tool_calls"][0]
+        assert isinstance(tc["arguments"], str)
+        assert json.loads(tc["arguments"]) == {
+            "expression": "3*3",
+        }
+
     def test_no_tools_no_tools_key(self, respx_mock):
         captured = {}
 

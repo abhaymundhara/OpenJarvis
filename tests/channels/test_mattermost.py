@@ -42,14 +42,25 @@ class TestInit:
         assert ch._token == "test-token"
 
     def test_env_var_fallback(self):
-        with patch.dict(os.environ, {"MATTERMOST_URL": "https://env.example.com", "MATTERMOST_TOKEN": "env-token"}):
+        env = {
+            "MATTERMOST_URL": "https://env.example.com",
+            "MATTERMOST_TOKEN": "env-token",
+        }
+        with patch.dict(os.environ, env):
             ch = MattermostChannel()
             assert ch._url == "https://env.example.com"
             assert ch._token == "env-token"
 
     def test_constructor_overrides_env(self):
-        with patch.dict(os.environ, {"MATTERMOST_URL": "https://env.example.com", "MATTERMOST_TOKEN": "env-token"}):
-            ch = MattermostChannel(url="https://explicit.example.com", token="explicit-token")
+        env = {
+            "MATTERMOST_URL": "https://env.example.com",
+            "MATTERMOST_TOKEN": "env-token",
+        }
+        with patch.dict(os.environ, env):
+            ch = MattermostChannel(
+                url="https://explicit.example.com",
+                token="explicit-token",
+            )
             assert ch._url == "https://explicit.example.com"
             assert ch._token == "explicit-token"
 
@@ -108,7 +119,11 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = MattermostChannel(url="https://mattermost.example.com", token="test-token", bus=bus)
+        ch = MattermostChannel(
+            url="https://mattermost.example.com",
+            token="test-token",
+            bus=bus,
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200

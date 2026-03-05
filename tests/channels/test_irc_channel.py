@@ -63,7 +63,11 @@ class TestInit:
             "IRC_NICK": "envbot",
             "IRC_PASSWORD": "envpass",
         }):
-            ch = IRCChannel(server="irc.explicit.com", nick="explicit", password="explicit-pass")
+            ch = IRCChannel(
+                server="irc.explicit.com",
+                nick="explicit",
+                password="explicit-pass",
+            )
             assert ch._server == "irc.explicit.com"
             assert ch._nick == "explicit"
             assert ch._password == "explicit-pass"
@@ -96,7 +100,12 @@ class TestSend:
 
     def test_send_publishes_event(self):
         bus = EventBus(record_history=True)
-        ch = IRCChannel(server="irc.example.com", nick="jarvis", password="pass123", bus=bus)
+        ch = IRCChannel(
+            server="irc.example.com",
+            nick="jarvis",
+            password="pass123",
+            bus=bus,
+        )
 
         mock_sock = MagicMock()
         with patch("socket.socket", return_value=mock_sock):

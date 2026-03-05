@@ -19,7 +19,6 @@ from openjarvis.evals.core.types import (
     RunConfig,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -197,7 +196,10 @@ class TestLoadEvalConfig:
             [[models]]
             name = "qwen3:8b"
         """)
-        with pytest.raises(EvalConfigError, match="at least one \\[\\[benchmarks\\]\\]"):
+        with pytest.raises(
+            EvalConfigError,
+            match="at least one \\[\\[benchmarks\\]\\]",
+        ):
             load_eval_config(p)
 
     def test_model_without_name_raises(self, tmp_path):
@@ -275,7 +277,10 @@ class TestLoadEvalConfig:
 
             benchmarks = []
         """)
-        with pytest.raises(EvalConfigError, match="at least one \\[\\[benchmarks\\]\\]"):
+        with pytest.raises(
+            EvalConfigError,
+            match="at least one \\[\\[benchmarks\\]\\]",
+        ):
             load_eval_config(p)
 
     def test_model_hardware_params(self, tmp_path):
@@ -339,7 +344,13 @@ class TestLoadEvalConfig:
 
 
 class TestExampleConfigs:
-    @pytest.fixture(params=["minimal.toml", "single-run.toml", "full-suite.toml", "glm-4.7-flash-openhands.toml", "glm-4.7-flash-openhands-remaining.toml"])
+    @pytest.fixture(params=[
+        "minimal.toml",
+        "single-run.toml",
+        "full-suite.toml",
+        "glm-4.7-flash-openhands.toml",
+        "glm-4.7-flash-openhands-remaining.toml",
+    ])
     def example_config(self, request):
         configs_dir = Path(__file__).resolve().parent.parent / "configs"
         return configs_dir / request.param
@@ -597,6 +608,7 @@ class TestExpandSuite:
 class TestCLIConfig:
     def test_run_missing_benchmark_and_config(self):
         from click.testing import CliRunner
+
         from openjarvis.evals.cli import main
 
         runner = CliRunner()
@@ -606,6 +618,7 @@ class TestCLIConfig:
 
     def test_run_missing_model_and_config(self):
         from click.testing import CliRunner
+
         from openjarvis.evals.cli import main
 
         runner = CliRunner()
@@ -615,6 +628,7 @@ class TestCLIConfig:
 
     def test_run_config_file_not_found(self):
         from click.testing import CliRunner
+
         from openjarvis.evals.cli import main
 
         runner = CliRunner()
@@ -630,6 +644,7 @@ class TestCLIConfig:
         from unittest.mock import patch
 
         from click.testing import CliRunner
+
         from openjarvis.evals.cli import main
 
         p = _write_toml(tmp_path, """\

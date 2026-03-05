@@ -51,7 +51,10 @@ class TestScheduledTask:
 
     def test_defaults(self):
         task = ScheduledTask(
-            id="x", prompt="p", schedule_type="once", schedule_value="2026-01-01T00:00:00"
+            id="x",
+            prompt="p",
+            schedule_type="once",
+            schedule_value="2026-01-01T00:00:00",
         )
         assert task.context_mode == "isolated"
         assert task.status == "active"

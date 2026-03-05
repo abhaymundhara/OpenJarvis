@@ -8,11 +8,11 @@ from rich.console import Console
 
 from openjarvis.evals.core.display import (
     print_accuracy_panel,
+    print_compact_table,
     print_energy_table,
+    print_full_results,
     print_latency_table,
     print_trace_summary,
-    print_compact_table,
-    print_full_results,
 )
 from openjarvis.evals.core.types import MetricStats, RunSummary
 
