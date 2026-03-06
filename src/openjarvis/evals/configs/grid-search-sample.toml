@@ -1,0 +1,158 @@
+# Grid Search Sample — vLLM slice with native_openhands agent.
+#
+# Demonstrates running 2 models (safetensors/FP8) across all 15 benchmarks
+# via the NativeOpenHandsAgent with tool calling, 5 samples each.
+#
+# To run:
+#   uv run python -m openjarvis.evals run -c src/openjarvis/evals/configs/grid-search-sample.toml -v
+#
+# For the full grid search across all models/engines/agents, use:
+#   uv run python scripts/run_grid_search.py --dry-run   # preview
+#   uv run python scripts/run_grid_search.py              # execute
+
+[meta]
+name = "grid-search-vllm-openhands"
+description = "Grid search slice: vLLM models x NativeOpenHandsAgent x all benchmarks (5 samples)"
+
+[defaults]
+temperature = 0.0
+max_tokens = 2048
+
+[judge]
+model = "gpt-5-mini-2025-08-07"
+temperature = 0.0
+max_tokens = 1024
+
+[run]
+max_workers = 1
+output_dir = "results/grid-search/vllm-openhands/"
+seed = 42
+
+# --- Models ---
+
+[[models]]
+name = "openai/gpt-oss-120b"
+engine = "vllm"
+param_count_b = 120.0
+active_params_b = 5.1
+num_gpus = 1
+
+[[models]]
+name = "Qwen/Qwen3.5-122B-A10B-FP8"
+engine = "vllm"
+param_count_b = 122.0
+active_params_b = 10.0
+num_gpus = 8
+
+# --- Benchmarks (all 15, 5 samples each) ---
+
+# Reasoning (MCQ)
+[[benchmarks]]
+name = "supergpqa"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "gpqa"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "mmlu-pro"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+# Reasoning (open-ended)
+[[benchmarks]]
+name = "math500"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "natural-reasoning"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "hle"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "calculator", "think"]
+max_samples = 5
+
+# Chat / QA
+[[benchmarks]]
+name = "simpleqa"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "wildchat"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "think"]
+max_samples = 5
+temperature = 0.7
+
+[[benchmarks]]
+name = "ipw"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "think"]
+max_samples = 5
+
+# Agentic
+[[benchmarks]]
+name = "gaia"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "web_search", "file_read", "calculator", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "swebench"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "file_read", "file_write", "shell_exec", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "swefficiency"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "file_read", "file_write", "shell_exec", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "terminalbench"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "shell_exec", "think"]
+max_samples = 5
+
+[[benchmarks]]
+name = "terminalbench-native"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "shell_exec", "think"]
+max_samples = 5
+
+# RAG
+[[benchmarks]]
+name = "frames"
+backend = "jarvis-agent"
+agent = "native_openhands"
+tools = ["code_interpreter", "web_search", "calculator", "think"]
+max_samples = 5

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List
 
 from openjarvis.core.registry import ModelRegistry
-from openjarvis.core.types import ModelSpec
+from openjarvis.core.types import ModelSpec, Quantization
 
 BUILTIN_MODELS: List[ModelSpec] = [
     # -----------------------------------------------------------------------
@@ -156,6 +156,90 @@ BUILTIN_MODELS: List[ModelSpec] = [
             "teacher": "Claude 4.5 Opus",
             "quantization": "GGUF Q4_K_M / Q8_0",
             "license": "apache-2.0",
+        },
+    ),
+    # -----------------------------------------------------------------------
+    # Local models — Grid Search Eval Models
+    # -----------------------------------------------------------------------
+    ModelSpec(
+        model_id="openai/gpt-oss-120b",
+        name="GPT-OSS 120B (HuggingFace)",
+        parameter_count_b=120.0,
+        active_parameter_count_b=5.1,
+        context_length=131072,
+        min_vram_gb=80.0,
+        supported_engines=("vllm", "sglang"),
+        provider="openai",
+        metadata={
+            "architecture": "moe",
+            "hf_repo": "openai/gpt-oss-120b",
+            "license": "apache-2.0",
+        },
+    ),
+    ModelSpec(
+        model_id="Qwen/Qwen3.5-122B-A10B-FP8",
+        name="Qwen3.5 122B A10B FP8",
+        parameter_count_b=122.0,
+        active_parameter_count_b=10.0,
+        context_length=262144,
+        quantization=Quantization.FP8,
+        min_vram_gb=60.0,
+        supported_engines=("vllm", "sglang"),
+        provider="alibaba",
+        metadata={
+            "architecture": "moe",
+            "hf_repo": "Qwen/Qwen3.5-122B-A10B-FP8",
+            "license": "apache-2.0",
+        },
+    ),
+    ModelSpec(
+        model_id="unsloth/Qwen3.5-397B-A17B-GGUF",
+        name="Qwen3.5 397B A17B GGUF",
+        parameter_count_b=397.0,
+        active_parameter_count_b=17.0,
+        context_length=262144,
+        quantization=Quantization.GGUF_Q4,
+        min_vram_gb=214.0,
+        supported_engines=("llamacpp", "ollama"),
+        provider="alibaba",
+        metadata={
+            "architecture": "moe",
+            "hf_repo": "unsloth/Qwen3.5-397B-A17B-GGUF",
+            "quantization": "GGUF Dynamic 2.0 (multiple variants)",
+        },
+    ),
+    ModelSpec(
+        model_id="unsloth/Kimi-K2.5-GGUF",
+        name="Kimi K2.5 GGUF",
+        parameter_count_b=1000.0,
+        active_parameter_count_b=32.0,
+        context_length=262144,
+        quantization=Quantization.GGUF_Q4,
+        min_vram_gb=240.0,
+        supported_engines=("llamacpp", "ollama"),
+        provider="moonshot",
+        metadata={
+            "architecture": "moe",
+            "hf_repo": "unsloth/Kimi-K2.5-GGUF",
+            "num_experts": 384,
+            "experts_per_token": 8,
+            "quantization": "GGUF Dynamic 2.0 (multiple variants)",
+        },
+    ),
+    ModelSpec(
+        model_id="unsloth/GLM-5-GGUF",
+        name="GLM-5 GGUF",
+        parameter_count_b=744.0,
+        active_parameter_count_b=40.0,
+        context_length=202752,
+        quantization=Quantization.GGUF_Q4,
+        min_vram_gb=241.0,
+        supported_engines=("llamacpp", "ollama"),
+        provider="zhipu",
+        metadata={
+            "architecture": "moe",
+            "hf_repo": "unsloth/GLM-5-GGUF",
+            "quantization": "GGUF Dynamic 2.0 (multiple variants)",
         },
     ),
     # -----------------------------------------------------------------------

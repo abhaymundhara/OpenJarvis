@@ -350,6 +350,7 @@ class TestExampleConfigs:
         "full-suite.toml",
         "glm-4.7-flash-openhands.toml",
         "glm-4.7-flash-openhands-remaining.toml",
+        "grid-search-sample.toml",
     ])
     def example_config(self, request):
         configs_dir = Path(__file__).resolve().parent.parent / "configs"
