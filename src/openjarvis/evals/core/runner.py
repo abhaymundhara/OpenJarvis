@@ -176,11 +176,16 @@ class EvalRunner:
         """Process a single evaluation sample."""
         cfg = self._config
         try:
-            full = self._backend.generate_full(
-                record.problem,
+            gen_kwargs: dict = dict(
                 model=cfg.model,
                 temperature=cfg.temperature,
                 max_tokens=cfg.max_tokens,
+            )
+            if cfg.system_prompt:
+                gen_kwargs["system"] = cfg.system_prompt
+            full = self._backend.generate_full(
+                record.problem,
+                **gen_kwargs,
             )
             content = full.get("content", "")
             usage = full.get("usage", {})

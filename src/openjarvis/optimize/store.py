@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from openjarvis.optimize.types import (
+    BenchmarkScore,
     OptimizationRun,
     SampleScore,
     SearchSpace,
@@ -74,11 +75,15 @@ _MIGRATE_TRIALS = [
     "sample_scores TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE trial_results ADD COLUMN "
     "structured_feedback TEXT NOT NULL DEFAULT '{}'",
+    "ALTER TABLE trial_results ADD COLUMN "
+    "per_benchmark TEXT NOT NULL DEFAULT '[]'",
 ]
 
 _MIGRATE_RUNS = [
     "ALTER TABLE optimization_runs ADD COLUMN "
     "pareto_frontier_ids TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE optimization_runs ADD COLUMN "
+    "benchmarks TEXT NOT NULL DEFAULT '[]'",
 ]
 
 
@@ -127,10 +132,12 @@ class OptimizationStore:
                 now,
             ),
         )
-        # Update pareto_frontier_ids separately (not in original INSERT)
+        benchmarks_json = json.dumps(run.benchmarks)
+        # Update pareto_frontier_ids and benchmarks separately
         self._conn.execute(
-            "UPDATE optimization_runs SET pareto_frontier_ids = ? WHERE run_id = ?",
-            (pareto_ids, run.run_id),
+            "UPDATE optimization_runs SET pareto_frontier_ids = ?, "
+            "benchmarks = ? WHERE run_id = ?",
+            (pareto_ids, benchmarks_json, run.run_id),
         )
         self._conn.commit()
 
@@ -227,11 +234,28 @@ class OptimizationStore:
                 now,
             ),
         )
+        # Serialize per_benchmark
+        pb_json = json.dumps([
+            {
+                "benchmark": b.benchmark,
+                "accuracy": b.accuracy,
+                "mean_latency_seconds": b.mean_latency_seconds,
+                "total_cost_usd": b.total_cost_usd,
+                "total_energy_joules": b.total_energy_joules,
+                "total_tokens": b.total_tokens,
+                "samples_evaluated": b.samples_evaluated,
+                "errors": b.errors,
+                "weight": b.weight,
+            }
+            for b in trial.per_benchmark
+        ])
+
         # Update new columns separately
         self._conn.execute(
-            "UPDATE trial_results SET sample_scores = ?, structured_feedback = ? "
+            "UPDATE trial_results SET sample_scores = ?, "
+            "structured_feedback = ?, per_benchmark = ? "
             "WHERE trial_id = ? AND run_id = ?",
-            (scores_json, fb_json, trial.trial_id, run_id),
+            (scores_json, fb_json, pb_json, trial.trial_id, run_id),
         )
         self._conn.commit()
 
@@ -325,6 +349,14 @@ class OptimizationStore:
                     best_trial = t
                     break
 
+        # Reconstruct benchmarks list
+        benchmarks: List[str] = []
+        if len(row) > 11:
+            try:
+                benchmarks = json.loads(row[11]) if row[11] else []
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         # Reconstruct pareto frontier from IDs
         pareto_frontier: List[TrialResult] = []
         if len(row) > 10:
@@ -346,6 +378,7 @@ class OptimizationStore:
             status=status,
             optimizer_model=optimizer_model,
             benchmark=benchmark,
+            benchmarks=benchmarks,
             pareto_frontier=pareto_frontier,
         )
 
@@ -417,6 +450,28 @@ class OptimizationStore:
             except (json.JSONDecodeError, TypeError):
                 pass
 
+        # per_benchmark column
+        per_benchmark: List[BenchmarkScore] = []
+        if len(row) > 16:
+            try:
+                raw_pb = json.loads(row[16]) if row[16] else []
+                per_benchmark = [
+                    BenchmarkScore(
+                        benchmark=b.get("benchmark", ""),
+                        accuracy=b.get("accuracy", 0.0),
+                        mean_latency_seconds=b.get("mean_latency_seconds", 0.0),
+                        total_cost_usd=b.get("total_cost_usd", 0.0),
+                        total_energy_joules=b.get("total_energy_joules", 0.0),
+                        total_tokens=b.get("total_tokens", 0),
+                        samples_evaluated=b.get("samples_evaluated", 0),
+                        errors=b.get("errors", 0),
+                        weight=b.get("weight", 1.0),
+                    )
+                    for b in raw_pb
+                ]
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         config = TrialConfig(
             trial_id=trial_id,
             params=params,
@@ -435,6 +490,7 @@ class OptimizationStore:
             failure_modes=failure_modes,
             sample_scores=sample_scores,
             structured_feedback=structured_feedback,
+            per_benchmark=per_benchmark,
         )
 
 

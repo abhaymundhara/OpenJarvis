@@ -16,6 +16,7 @@ from openjarvis.core.types import Trace
 from openjarvis.evals.core.backend import InferenceBackend
 from openjarvis.evals.core.types import RunSummary
 from openjarvis.optimize.types import (
+    BenchmarkScore,
     SampleScore,
     SearchSpace,
     TrialConfig,
@@ -90,6 +91,7 @@ class LLMOptimizer:
         summary: RunSummary,
         traces: Optional[List[Trace]] = None,
         sample_scores: Optional[List[SampleScore]] = None,
+        per_benchmark: Optional[List[BenchmarkScore]] = None,
     ) -> TrialFeedback:
         """Ask the LLM to analyze a completed trial. Returns structured feedback."""
         if self.optimizer_backend is None:
@@ -97,7 +99,9 @@ class LLMOptimizer:
                 "optimizer_backend is required to analyze trials"
             )
 
-        prompt = self._build_analyze_prompt(trial, summary, traces, sample_scores)
+        prompt = self._build_analyze_prompt(
+            trial, summary, traces, sample_scores, per_benchmark,
+        )
         response = self.optimizer_backend.generate(
             prompt,
             model=self.optimizer_model,
@@ -200,6 +204,7 @@ class LLMOptimizer:
         summary: RunSummary,
         traces: Optional[List[Trace]] = None,
         sample_scores: Optional[List[SampleScore]] = None,
+        per_benchmark: Optional[List[BenchmarkScore]] = None,
     ) -> str:
         """Construct the prompt for analyze_trial."""
         lines: List[str] = []
@@ -213,7 +218,26 @@ class LLMOptimizer:
             lines.append(f"\nOptimizer reasoning: {trial.reasoning}")
         lines.append("")
 
-        lines.append("## Results")
+        # Per-benchmark breakdown (multi-benchmark mode)
+        if per_benchmark:
+            lines.append("## Per-Benchmark Results")
+            total_weight = sum(b.weight for b in per_benchmark) or 1.0
+            for b in per_benchmark:
+                lines.append(
+                    f"### {b.benchmark} (weight={b.weight:.1f}): "
+                    f"accuracy={b.accuracy:.4f}, "
+                    f"latency={b.mean_latency_seconds:.2f}s, "
+                    f"cost=${b.total_cost_usd:.4f}, "
+                    f"energy={b.total_energy_joules:.2f}J, "
+                    f"samples={b.samples_evaluated}, errors={b.errors}"
+                )
+            weighted_acc = (
+                sum(b.accuracy * b.weight for b in per_benchmark) / total_weight
+            )
+            lines.append(f"\nOverall weighted accuracy: {weighted_acc:.4f}")
+            lines.append("")
+
+        lines.append("## Aggregate Results")
         lines.append(f"- accuracy: {summary.accuracy:.4f}")
         lines.append(
             f"- mean_latency_seconds: {summary.mean_latency_seconds:.4f}"
@@ -276,6 +300,12 @@ class LLMOptimizer:
             )
             lines.append(f"Cost: ${result.total_cost_usd:.4f}")
             lines.append(f"Energy: {result.total_energy_joules:.4f}J")
+            if result.per_benchmark:
+                bench_parts = [
+                    f"{b.benchmark}={b.accuracy:.4f}"
+                    for b in result.per_benchmark
+                ]
+                lines.append(f"Per-benchmark accuracy: {', '.join(bench_parts)}")
             if result.summary:
                 s = result.summary
                 if s.throughput_stats:
@@ -626,19 +656,30 @@ class LLMOptimizer:
             except json.JSONDecodeError:
                 continue
 
-        # Last resort: return empty config
+        # Last resort: return config with at least the fixed params
+        fixed = dict(self.search_space.fixed) if self.search_space and self.search_space.fixed else {}
         return TrialConfig(
             trial_id=trial_id,
-            params={},
+            params=fixed,
             reasoning="Failed to parse LLM response.",
         )
 
     def _config_from_dict(
         self, data: Dict[str, Any], trial_id: str
     ) -> TrialConfig:
-        """Build a TrialConfig from a parsed JSON dict."""
+        """Build a TrialConfig from a parsed JSON dict.
+
+        Merges fixed parameters from the search space so that fixed values
+        (e.g. intelligence.model, engine.backend) are always present.
+        """
         params = data.get("params", {})
         reasoning = data.get("reasoning", "")
+
+        # Inject fixed params — these override anything the LLM proposed
+        if self.search_space and self.search_space.fixed:
+            for key, value in self.search_space.fixed.items():
+                params[key] = value
+
         return TrialConfig(
             trial_id=trial_id,
             params=params,

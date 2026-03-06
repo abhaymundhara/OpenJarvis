@@ -53,6 +53,7 @@ class Recipe:
     agent_type: Optional[str] = None
     max_turns: Optional[int] = None
     temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
     tools: List[str] = field(default_factory=list)
     system_prompt: Optional[str] = None
     system_prompt_path: Optional[str] = None

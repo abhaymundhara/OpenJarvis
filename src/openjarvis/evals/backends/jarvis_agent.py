@@ -69,13 +69,15 @@ class JarvisAgentBackend(InferenceBackend):
         max_tokens: int = 2048,
     ) -> Dict[str, Any]:
         t0 = time.monotonic()
-        result = self._system.ask(
-            prompt,
+        ask_kwargs: dict = dict(
             agent=self._agent_name,
             tools=self._tools if self._tools else None,
             temperature=temperature,
             max_tokens=max_tokens,
         )
+        if system:
+            ask_kwargs["system_prompt"] = system
+        result = self._system.ask(prompt, **ask_kwargs)
         elapsed = time.monotonic() - t0
 
         usage = result.get("usage", {})

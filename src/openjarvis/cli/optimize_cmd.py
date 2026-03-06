@@ -52,6 +52,8 @@ def optimize_run(
     """Run an optimization loop over OpenJarvis configuration."""
     console = Console(stderr=True)
 
+    # Load config data if provided
+    data = None
     if config_path is not None:
         try:
             from openjarvis.optimize.config import load_optimize_config
@@ -72,45 +74,113 @@ def optimize_run(
         trials = opt_section.get("max_trials", trials)
         optimizer_model = opt_section.get("optimizer_model", optimizer_model)
         max_samples = opt_section.get("max_samples", max_samples)
+        output_dir = opt_section.get("output_dir", output_dir)
 
-    if not benchmark:
+    # Detect multi-benchmark mode
+    benchmark_specs = None
+    if data is not None:
+        try:
+            from openjarvis.optimize.config import load_benchmark_specs
+
+            specs = load_benchmark_specs(data)
+            if len(specs) > 1:
+                benchmark_specs = specs
+        except ImportError:
+            pass
+
+    if not benchmark and benchmark_specs is None:
         raise click.UsageError(
             "Provide --benchmark/-b or a config file with "
-            "[optimize] benchmark = '...'."
+            "[optimize] benchmark = '...' or [[optimize.benchmarks]]."
         )
 
-    console.print(
-        f"[cyan]Starting optimization:[/cyan] "
-        f"benchmark={benchmark}, max_trials={trials}"
-    )
+    if benchmark_specs:
+        bench_names = [s.benchmark for s in benchmark_specs]
+        console.print(
+            f"[cyan]Starting multi-benchmark optimization:[/cyan] "
+            f"benchmarks={bench_names}, max_trials={trials}"
+        )
+    else:
+        console.print(
+            f"[cyan]Starting optimization:[/cyan] "
+            f"benchmark={benchmark}, max_trials={trials}"
+        )
     console.print(f"[cyan]Optimizer model:[/cyan] {optimizer_model}")
     console.print(f"[cyan]Max samples/trial:[/cyan] {max_samples}")
 
     try:
         from openjarvis.core.config import DEFAULT_CONFIG_DIR
+        from openjarvis.optimize.config import load_objectives
         from openjarvis.optimize.llm_optimizer import LLMOptimizer
         from openjarvis.optimize.optimizer import OptimizationEngine
-        from openjarvis.optimize.search_space import DEFAULT_SEARCH_SPACE
+        from openjarvis.optimize.search_space import (
+            DEFAULT_SEARCH_SPACE,
+            build_search_space,
+        )
         from openjarvis.optimize.store import OptimizationStore
-        from openjarvis.optimize.trial_runner import TrialRunner
+        from openjarvis.optimize.trial_runner import (
+            MultiBenchTrialRunner,
+            TrialRunner,
+        )
+
+        # Build search space from config or use default
+        search_space = DEFAULT_SEARCH_SPACE
+        if data is not None:
+            opt_section = data.get("optimize", {})
+            if opt_section.get("search"):
+                search_space = build_search_space(data)
+
+        # Load objectives from config
+        objectives = None
+        if data is not None:
+            objectives = load_objectives(data)
+
+        # Build optimizer backend for cloud LLM
+        optimizer_backend = None
+        try:
+            from openjarvis.evals.cli import _build_judge_backend
+
+            optimizer_backend = _build_judge_backend(optimizer_model)
+        except Exception:
+            pass
 
         store = OptimizationStore(DEFAULT_CONFIG_DIR / "optimize.db")
         llm_opt = LLMOptimizer(
-            search_space=DEFAULT_SEARCH_SPACE,
+            search_space=search_space,
             optimizer_model=optimizer_model,
+            optimizer_backend=optimizer_backend,
         )
-        runner = TrialRunner(
-            benchmark=benchmark,
-            max_samples=max_samples,
-            output_dir=output_dir,
-        )
+
+        # Build trial runner: multi-benchmark or single
+        if benchmark_specs:
+            runner = MultiBenchTrialRunner(
+                benchmark_specs=benchmark_specs,
+                output_dir=output_dir,
+            )
+        else:
+            runner = TrialRunner(
+                benchmark=benchmark,
+                max_samples=max_samples,
+                output_dir=output_dir,
+            )
+
+        early_stop = 5
+        if data is not None:
+            early_stop = data.get("optimize", {}).get(
+                "early_stop_patience", early_stop,
+            )
+
         engine = OptimizationEngine(
-            search_space=DEFAULT_SEARCH_SPACE,
+            search_space=search_space,
             llm_optimizer=llm_opt,
             trial_runner=runner,
             store=store,
             max_trials=trials,
+            early_stop_patience=early_stop,
         )
+        if objectives:
+            # Pre-set objectives on the engine's run
+            engine._default_objectives = objectives
 
         run = engine.run(
             progress_callback=lambda t, m: console.print(

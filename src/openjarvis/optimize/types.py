@@ -76,15 +76,34 @@ class SearchSpace:
 _PARAM_TO_RECIPE: Dict[str, str] = {
     "intelligence.model": "model",
     "intelligence.temperature": "temperature",
+    "intelligence.max_tokens": "max_tokens",
     "intelligence.quantization": "quantization",
     "engine.backend": "engine_key",
     "agent.type": "agent_type",
     "agent.max_turns": "max_turns",
     "agent.system_prompt": "system_prompt",
+    "intelligence.system_prompt": "system_prompt",
     "tools.tool_set": "tools",
     "learning.routing_policy": "routing_policy",
     "learning.agent_policy": "agent_policy",
 }
+
+
+@dataclass(slots=True)
+class BenchmarkScore:
+    """Per-benchmark metrics from a multi-benchmark evaluation trial."""
+
+    benchmark: str
+    accuracy: float = 0.0
+    mean_latency_seconds: float = 0.0
+    total_cost_usd: float = 0.0
+    total_energy_joules: float = 0.0
+    total_tokens: int = 0
+    samples_evaluated: int = 0
+    errors: int = 0
+    weight: float = 1.0
+    summary: Optional[Any] = None  # RunSummary
+    sample_scores: List["SampleScore"] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -197,6 +216,7 @@ class TrialResult:
     summary: Optional[RunSummary] = None
     sample_scores: List[SampleScore] = field(default_factory=list)
     structured_feedback: Optional[TrialFeedback] = None
+    per_benchmark: List[BenchmarkScore] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -211,6 +231,7 @@ class OptimizationRun:
     status: str = "running"  # running | completed | failed
     optimizer_model: str = ""
     benchmark: str = ""
+    benchmarks: List[str] = field(default_factory=list)
     pareto_frontier: List[TrialResult] = field(default_factory=list)
     objectives: List[ObjectiveSpec] = field(
         default_factory=lambda: list(DEFAULT_OBJECTIVES),
@@ -219,6 +240,7 @@ class OptimizationRun:
 
 __all__ = [
     "ALL_OBJECTIVES",
+    "BenchmarkScore",
     "DEFAULT_OBJECTIVES",
     "ObjectiveSpec",
     "OptimizationRun",

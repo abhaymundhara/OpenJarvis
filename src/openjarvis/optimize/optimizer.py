@@ -164,12 +164,24 @@ class OptimizationEngine:
                 called after each trial completes.
         """
         run_id = uuid.uuid4().hex[:16]
+        # Detect benchmark name(s) from the trial runner
+        from openjarvis.optimize.trial_runner import MultiBenchTrialRunner
+
+        benchmark_name = getattr(self.trial_runner, "benchmark", "")
+        benchmark_names: List[str] = []
+        if isinstance(self.trial_runner, MultiBenchTrialRunner):
+            benchmark_names = [
+                s.benchmark for s in self.trial_runner.benchmark_specs
+            ]
+            benchmark_name = "+".join(benchmark_names)
+
         optimization_run = OptimizationRun(
             run_id=run_id,
             search_space=self.search_space,
             status="running",
             optimizer_model=self.llm_optimizer.optimizer_model,
-            benchmark=getattr(self.trial_runner, "benchmark", ""),
+            benchmark=benchmark_name,
+            benchmarks=benchmark_names,
         )
 
         history: List[TrialResult] = []
@@ -196,6 +208,37 @@ class OptimizationEngine:
                     config,
                     result.summary,
                     sample_scores=result.sample_scores or None,
+                    per_benchmark=result.per_benchmark or None,
+                )
+                result.structured_feedback = feedback
+                result.analysis = feedback.summary_text
+            elif result.per_benchmark:
+                # Multi-benchmark composite: build a synthetic summary
+                # for analysis from per_benchmark data
+                from openjarvis.evals.core.types import RunSummary as _RS
+
+                synth = _RS(
+                    benchmark="multi",
+                    category="multi",
+                    backend="jarvis-agent",
+                    model=result.config.params.get("intelligence.model", ""),
+                    accuracy=result.accuracy,
+                    mean_latency_seconds=result.mean_latency_seconds,
+                    total_cost_usd=result.total_cost_usd,
+                    total_energy_joules=result.total_energy_joules,
+                    total_samples=result.samples_evaluated,
+                    scored_samples=result.samples_evaluated,
+                    correct=int(
+                        result.accuracy * result.samples_evaluated
+                    ),
+                    errors=0,
+                    total_input_tokens=0,
+                    total_output_tokens=result.total_tokens,
+                )
+                feedback = self.llm_optimizer.analyze_trial(
+                    config,
+                    synth,
+                    per_benchmark=result.per_benchmark,
                 )
                 result.structured_feedback = feedback
                 result.analysis = feedback.summary_text

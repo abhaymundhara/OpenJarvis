@@ -78,6 +78,7 @@ class RunConfig:
     sheets_spreadsheet_id: str = ""
     sheets_worksheet: str = "Results"
     sheets_credentials_path: str = ""
+    system_prompt: str = ""
 
 
 @dataclass(slots=True)
