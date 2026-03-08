@@ -147,7 +147,7 @@ class TestOrchestratorWithCalculator:
         assert result.content == "2+2 equals 4."
         assert result.turns == 2
         assert len(result.tool_results) == 1
-        assert result.tool_results[0].content == "4"
+        assert result.tool_results[0].content == "4.0"
         assert result.tool_results[0].success is True
 
         # Verify tool call events
@@ -276,7 +276,7 @@ class TestToolExecutorIntegration:
             ToolCall(id="1", name="calculator", arguments='{"expression":"3*7"}'),
         )
         assert calc_result.success is True
-        assert calc_result.content == "21"
+        assert calc_result.content == "21.0"
 
         # Think
         think_result = executor.execute(

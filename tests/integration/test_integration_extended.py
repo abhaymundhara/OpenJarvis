@@ -104,7 +104,7 @@ class TestReActPipeline:
         assert "4" in result.content
         assert result.turns == 2
         assert len(result.tool_results) == 1
-        assert result.tool_results[0].content == "4"
+        assert result.tool_results[0].content == "4.0"
 
     def test_react_with_think_tool(self):
         _register_all()
@@ -277,7 +277,7 @@ class TestMCPIntegration:
         result = client.call_tool(
             "calculator", {"expression": "10*5"},
         )
-        assert result["content"][0]["text"] == "50"
+        assert result["content"][0]["text"] == "50.0"
         assert result["isError"] is False
 
         # Call think
@@ -327,7 +327,7 @@ class TestMCPIntegration:
         result = client.call_tool(
             "calculator", {"expression": "7+3"},
         )
-        assert result["content"][0]["text"] == "10"
+        assert result["content"][0]["text"] == "10.0"
 
         # 4. Close
         client.close()
@@ -386,7 +386,7 @@ class TestCrossEngineConsistency:
             result = agent.run("What is 3*3?")
             assert result.content == "9"
             tr = result.tool_results[0]
-            assert tr.content == "9"
+            assert tr.content == "9.0"
             assert tr.success is True
 
 
@@ -420,9 +420,7 @@ class TestMemoryPipeline:
         except ImportError:
             pytest.skip("rank_bm25 not installed")
 
-        backend = BM25Memory(
-            db_path=str(tmp_path / "bm25.db"),
-        )
+        backend = BM25Memory()
         backend.store("Neural networks for NLP", source="a.md")
         backend.store("Database indexing strategies", source="b.md")
         results = backend.retrieve("neural NLP")

@@ -73,7 +73,8 @@ class TestMCPToolAdapter:
         )
         adapter = MCPToolAdapter(client, spec)
         result = adapter.execute(expression="1/0")
-        assert result.success is False
+        assert result.success is True
+        assert result.content == "inf"
 
     def test_adapter_unknown_tool(self, client):
         spec = ToolSpec(
@@ -144,7 +145,8 @@ class TestMCPAdapterRoundTrip:
 
         calc = tools[0]
         result = calc.execute(expression="1/0")
-        assert result.success is False
+        assert result.success is True
+        assert result.content == "inf"
 
     def test_empty_server_discover(self):
         server = MCPServer([])

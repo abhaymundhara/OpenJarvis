@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import json
-import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from openjarvis._rust_bridge import get_rust_module
 from openjarvis.core.events import EventType, get_event_bus
@@ -43,7 +42,7 @@ class BM25Memory(MemoryBackend):
         source: str = "",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Persist *content* and return a unique document id — always via Rust backend."""
+        """Persist *content* and return a unique document id."""
         meta_json = json.dumps(metadata) if metadata else None
         doc_id = self._rust_impl.store(content, source, meta_json)
         bus = get_event_bus()

@@ -61,7 +61,7 @@ class LoopGuard:
         )
 
     def check_call(self, tool_name: str, arguments: str) -> LoopVerdict:
-        """Check whether a tool call should proceed or be blocked — always via Rust backend."""
+        """Check whether a tool call should proceed or be blocked."""
         reason = self._rust_impl.check(tool_name, arguments)
         if reason is not None:
             self._emit_triggered("rust_guard", tool_name)

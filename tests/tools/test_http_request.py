@@ -2,12 +2,32 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 import respx
 
 from openjarvis.tools.http_request import HttpRequestTool
+
+
+@pytest.fixture(autouse=True)
+def _force_httpx_fallback():
+    """Patch the Rust HTTP tool so it raises, falling back to httpx.
+
+    The Rust backend makes real HTTP requests that bypass respx mocks.
+    By making the Rust HttpRequestTool().execute() raise, the tool falls
+    through to the httpx code path where respx interception works.
+    """
+    mock_rust = MagicMock()
+    mock_rust.HttpRequestTool.return_value.execute.side_effect = RuntimeError(
+        "mocked out"
+    )
+    with patch(
+        "openjarvis._rust_bridge.get_rust_module",
+        return_value=mock_rust,
+    ):
+        yield
 
 
 class TestHttpRequestTool:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -93,7 +92,7 @@ class SQLiteMemory(MemoryBackend):
         source: str = "",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Persist *content* and return a unique document id — always via Rust backend."""
+        """Persist *content* and return a unique document id."""
         meta_json = json.dumps(metadata) if metadata else None
         doc_id = self._rust_impl.store(content, source, meta_json)
         bus = get_event_bus()

@@ -73,6 +73,9 @@ target/
 # Claude plan artifacts
 docs/plans/
 
+# Claude Code project instructions (per-developer)
+CLAUDE.md
+
 # Tauri auto-generated schemas
 **/src-tauri/gen/schemas/
 

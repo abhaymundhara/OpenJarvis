@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from typing import Dict, Tuple
 
 from openjarvis._rust_bridge import get_rust_module, scan_result_from_json
 from openjarvis.security._stubs import BaseScanner
-from openjarvis.security.types import ScanFinding, ScanResult, ThreatLevel
+from openjarvis.security.types import ScanResult, ThreatLevel
 
 # ---------------------------------------------------------------------------
 # SecretScanner
@@ -81,7 +80,7 @@ class SecretScanner(BaseScanner):
         return scan_result_from_json(self._rust_impl.scan(text))
 
     def redact(self, text: str) -> str:
-        """Replace secret matches with ``[REDACTED:{pattern_name}]`` — always via Rust backend."""
+        """Replace secret matches with ``[REDACTED:{pattern_name}]``."""
         return self._rust_impl.redact(text)
 
 
@@ -142,7 +141,7 @@ class PIIScanner(BaseScanner):
         return scan_result_from_json(self._rust_impl.scan(text))
 
     def redact(self, text: str) -> str:
-        """Replace PII matches with ``[REDACTED:{pattern_name}]`` — always via Rust backend."""
+        """Replace PII matches with ``[REDACTED:{pattern_name}]``."""
         return self._rust_impl.redact(text)
 
 
