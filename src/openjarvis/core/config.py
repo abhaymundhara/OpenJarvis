@@ -1020,13 +1020,19 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
     Parameters
     ----------
     path:
-        Explicit config file.  Falls back to ``~/.openjarvis/config.toml``.
+        Explicit config file. If not set, uses ``OPENJARVIS_CONFIG`` when set,
+        otherwise ``~/.openjarvis/config.toml``.
     """
     hw = detect_hardware()
     cfg = JarvisConfig(hardware=hw)
     cfg.engine.default = recommend_engine(hw)
 
-    config_path = path or DEFAULT_CONFIG_PATH
+    if path is not None:
+        config_path = Path(path)
+    elif os.environ.get("OPENJARVIS_CONFIG"):
+        config_path = Path(os.environ["OPENJARVIS_CONFIG"]).expanduser().resolve()
+    else:
+        config_path = DEFAULT_CONFIG_PATH
     if config_path.exists():
         with open(config_path, "rb") as fh:
             data = tomllib.load(fh)

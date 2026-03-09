@@ -61,6 +61,7 @@ class RunConfig:
     temperature: float = 0.0
     max_tokens: int = 2048
     judge_model: str = "gpt-5-mini-2025-08-07"
+    judge_engine: str = "cloud"
     engine_key: Optional[str] = None
     agent_name: Optional[str] = None
     tools: List[str] = field(default_factory=list)

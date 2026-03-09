@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+LOGGER = logging.getLogger(__name__)
+
 import click
 from rich.console import Console
 from rich.progress import (
@@ -363,10 +365,25 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
 
-def _build_judge_backend(judge_model: str):
-    """Build the judge backend (always cloud for LLM-as-judge)."""
+def _build_judge_backend(judge_model: str, engine_key: str = "cloud"):
+    """Build the judge backend for LLM-as-judge scoring.
+
+    Returns None if no engine is reachable — deterministic scorers
+    (e.g. LifelongAgentScorer, GAIAScorer) accept None and ignore it.
+    LLM-judge scorers will raise a clear error when they actually try
+    to use the backend rather than failing at startup.
+    """
     from openjarvis.evals.backends.jarvis_direct import JarvisDirectBackend
-    return JarvisDirectBackend(engine_key="cloud")
+    try:
+        return JarvisDirectBackend(engine_key=engine_key)
+    except RuntimeError as exc:
+        LOGGER.warning(
+            "Judge backend (%s) unavailable: %s — "
+            "deterministic scorers will still work; "
+            "LLM-judge scorers will fail when scoring.",
+            engine_key, exc,
+        )
+        return None
 
 
 def _print_summary(
@@ -437,8 +454,9 @@ def _run_single(config, console: Optional[Console] = None) -> object:
         gpu_metrics=getattr(config, "gpu_metrics", False),
         model=config.model,
     )
-    dataset = _build_dataset(config.benchmark, getattr(config, "dataset_subset", None))
-    judge_backend = _build_judge_backend(config.judge_model)
+    dataset = _build_dataset(config.benchmark)
+    judge_engine = getattr(config, "judge_engine", "cloud") or "cloud"
+    judge_backend = _build_judge_backend(config.judge_model, engine_key=judge_engine)
     scorer = _build_scorer(config.benchmark, judge_backend, config.judge_model)
 
     trackers = _build_trackers(config)
@@ -467,7 +485,8 @@ def _run_single(config, console: Optional[Console] = None) -> object:
         return summary
     finally:
         eval_backend.close()
-        judge_backend.close()
+        if judge_backend is not None:
+            judge_backend.close()
 
 
 def _run_agentic(
@@ -807,8 +826,13 @@ def main():
               help="Service account JSON path")
 @click.option("--model-filter", default=None,
               help="Filter models by name substring (for multi-model configs)")
+@click.option("--judge-engine", default="cloud",
+              help="Engine key for LLM judge (default: cloud). Use 'vllm' to judge locally.")
 @click.option("--agentic", is_flag=True, default=False,
               help="Use AgenticRunner for multi-turn agent execution")
+@click.option("--episode-mode", is_flag=True, default=False,
+              help="Sequential episode processing with lifelong learning "
+                   "(required for lifelong-agent and similar benchmarks)")
 @click.option("--concurrency", type=int, default=1,
               help="Parallel query execution (AgenticRunner only)")
 @click.option("--query-timeout", type=float, default=None,
@@ -821,7 +845,8 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         compact, trace_detail,
         wandb_project, wandb_entity, wandb_tags, wandb_group,
         sheets_spreadsheet_id, sheets_worksheet, sheets_credentials_path,
-        model_filter, agentic, concurrency, query_timeout, verbose):
+        model_filter, judge_engine, agentic, episode_mode,
+        concurrency, query_timeout, verbose):
     """Run a single benchmark evaluation, or a full suite from a TOML config."""
     _setup_logging(verbose)
 
@@ -848,6 +873,17 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
 
     tool_list = [t.strip() for t in tools.split(",") if t.strip()] if tools else []
 
+    # --episode-mode takes precedence over --agentic.
+    # Note: EvalRunner also auto-detects episode_mode from the dataset
+    # (via iter_episodes), so passing --episode-mode here is optional for
+    # benchmarks like lifelong-agent that always require it.
+    if episode_mode and agentic:
+        LOGGER.warning(
+            "--episode-mode and --agentic both set; using --episode-mode "
+            "(provides proper multi-turn interaction via EvalRunner)"
+        )
+        agentic = False
+
     config = RunConfig(
         benchmark=benchmark,
         backend=backend,
@@ -857,6 +893,7 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         temperature=temperature,
         max_tokens=max_tokens,
         judge_model=judge_model,
+        judge_engine=judge_engine,
         engine_key=engine_key,
         agent_name=agent_name,
         tools=tool_list,
@@ -872,6 +909,7 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         sheets_spreadsheet_id=sheets_spreadsheet_id,
         sheets_worksheet=sheets_worksheet,
         sheets_credentials_path=sheets_credentials_path,
+        episode_mode=episode_mode,
     )
 
     # Banner + config
@@ -885,6 +923,8 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         samples=max_samples,
         workers=max_workers,
     )
+    if episode_mode:
+        console.print("  [cyan]Mode:[/cyan]       episode (sequential + lifelong learning)")
 
     if agentic:
         # --- Agentic runner path ---
@@ -1010,7 +1050,8 @@ def run_all(model, engine_key, max_samples, max_workers, judge_model,
             console.print(f"  [red bold]FAILED:[/red bold] {exc}")
         finally:
             eval_backend.close()
-            judge_backend.close()
+            if judge_backend is not None:
+                judge_backend.close()
 
     # Print overall summary
     if summaries:

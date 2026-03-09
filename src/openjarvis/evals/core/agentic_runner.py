@@ -345,37 +345,67 @@ class AgenticRunner:
                 if task_env is not None and hasattr(agent, "set_task_metadata"):
                     agent.set_task_metadata(record.metadata)
 
-                # Run the agent
-                if hasattr(agent, "ask"):
-                    # SystemBuilder-based agent (JarvisSystem)
-                    result = agent.ask(record.problem)
-                    if isinstance(result, dict):
-                        response_text = result.get("content", "")
-                        usage = result.get("usage", {})
+                # Envs with reset/step/evaluate use run_agent_loop
+                # for multi-turn interaction with conversation history.
+                if task_env is not None and hasattr(task_env, "run_agent_loop"):
+                    def _generate(prompt: str) -> str:
+                        if hasattr(agent, "ask"):
+                            r = agent.ask(prompt)
+                            if isinstance(r, dict):
+                                return r.get("content", str(r))
+                            return str(r)
+                        elif hasattr(agent, "run"):
+                            r = agent.run(prompt)
+                            return getattr(r, "content", str(r))
+                        return str(agent(prompt))
+
+                    task_env.run_agent_loop(_generate, record)
+
+                    # Collect full interaction from run_agent_loop
+                    if hasattr(task_env, "all_responses") and task_env.all_responses:
+                        response_text = "\n---\n".join(task_env.all_responses)
+                    else:
+                        response_text = ""
+                else:
+                    # Standard one-shot agent execution
+                    if hasattr(agent, "ask"):
+                        # SystemBuilder-based agent (JarvisSystem)
+                        result = agent.ask(record.problem)
+                        if isinstance(result, dict):
+                            response_text = result.get("content", "")
+                            usage = result.get("usage", {})
+                            result_tokens = {
+                                "input_tokens": usage.get("prompt_tokens", 0),
+                                "output_tokens": usage.get("completion_tokens", 0),
+                                "cost_usd": result.get("cost_usd", 0.0),
+                            }
+                        else:
+                            response_text = str(result)
+                    elif hasattr(agent, "run"):
+                        # BaseAgent-style
+                        result = agent.run(record.problem)
+                        response_text = getattr(result, "content", str(result))
                         result_tokens = {
-                            "input_tokens": usage.get("prompt_tokens", 0),
-                            "output_tokens": usage.get("completion_tokens", 0),
-                            "cost_usd": result.get("cost_usd", 0.0),
+                            "input_tokens": getattr(result, "input_tokens", 0)
+                            or 0,
+                            "output_tokens": getattr(result, "output_tokens", 0)
+                            or 0,
+                            "cost_usd": getattr(result, "cost_usd", 0.0) or 0.0,
                         }
                     else:
-                        response_text = str(result)
-                elif hasattr(agent, "run"):
-                    # BaseAgent-style
-                    result = agent.run(record.problem)
-                    response_text = getattr(result, "content", str(result))
-                    result_tokens = {
-                        "input_tokens": getattr(result, "input_tokens", 0)
-                        or 0,
-                        "output_tokens": getattr(result, "output_tokens", 0)
-                        or 0,
-                        "cost_usd": getattr(result, "cost_usd", 0.0) or 0.0,
-                    }
-                else:
-                    response_text = str(agent(record.problem))
+                        response_text = str(agent(record.problem))
 
                 # Run tests if task env supports it
                 if task_env is not None and hasattr(task_env, "run_tests"):
                     task_env.run_tests()
+
+                # Read back evaluate() result from reset/step/evaluate envs
+                if task_env is not None and hasattr(task_env, "last_eval_result"):
+                    eval_result = task_env.last_eval_result
+                    if eval_result is not None:
+                        is_correct, eval_meta = eval_result
+                        record.metadata["is_resolved"] = is_correct
+                        record.metadata["eval_meta"] = eval_meta
 
         except Exception as exc:
             LOGGER.warning("Agent failed on query %s: %s", query_id, exc)
@@ -401,6 +431,20 @@ class AgenticRunner:
         # Build turn traces from event recorder
         events = event_recorder.get_events()
         turns = self._build_turn_traces(events, readings)
+
+        # Build turn traces from task_env's run_agent_loop data when
+        # the EventRecorder captured nothing (run_agent_loop calls
+        # agent.ask() directly, bypassing the recorder).
+        if (
+            not turns
+            and task_env is not None
+            and hasattr(task_env, "turn_wall_clocks")
+            and task_env.turn_wall_clocks
+        ):
+            turns = [
+                TurnTrace(turn_index=i, wall_clock_s=tw)
+                for i, tw in enumerate(task_env.turn_wall_clocks)
+            ]
 
         # Synthetic turn when EventRecorder captured nothing
         in_tok = result_tokens.get("input_tokens", 0)
