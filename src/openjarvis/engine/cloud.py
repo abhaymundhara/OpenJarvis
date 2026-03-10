@@ -21,6 +21,7 @@ PRICING: Dict[str, tuple[float, float]] = {
     "gpt-4o": (2.50, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-5": (10.00, 30.00),
+    "gpt-5.4": (15.00, 60.00),
     "gpt-5-mini": (0.25, 2.00),
     "o3-mini": (1.10, 4.40),
     "claude-sonnet-4-20250514": (3.00, 15.00),
@@ -33,10 +34,16 @@ PRICING: Dict[str, tuple[float, float]] = {
     "gemini-2.5-flash": (0.30, 2.50),
     "gemini-3-pro": (2.00, 12.00),
     "gemini-3-flash": (0.50, 3.00),
+    "gemini-3.1-pro-preview": (2.50, 15.00),
+    "gemini-3.1-flash-lite-preview": (0.30, 2.50),
+    "gemini-3-flash-preview": (0.50, 3.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
 }
 
 # Well-known model IDs per provider
-_OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-5-mini", "o3-mini"]
+_OPENAI_MODELS = [
+    "gpt-4o", "gpt-4o-mini", "gpt-5", "gpt-5.4", "gpt-5-mini", "o3-mini",
+]
 _ANTHROPIC_MODELS = [
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
@@ -44,12 +51,16 @@ _ANTHROPIC_MODELS = [
     "claude-opus-4-6",
     "claude-sonnet-4-6",
     "claude-haiku-4-5",
+    "claude-haiku-4-5-20251001",
 ]
 _GOOGLE_MODELS = [
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-3-pro",
     "gemini-3-flash",
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3-flash-preview",
 ]
 
 
@@ -64,8 +75,10 @@ def _is_google_model(model: str) -> bool:
 def _is_openai_reasoning_model(model: str) -> bool:
     """Check if model is an OpenAI reasoning model that restricts temperature."""
     m = model.lower()
-    # o1/o3 series and gpt-5-mini dated snapshots are reasoning models
-    return m.startswith(("o1", "o3")) or "gpt-5-mini-" in m
+    # o1/o3 series and gpt-5-mini (all variants) are reasoning models
+    if m.startswith(("o1", "o3")):
+        return True
+    return m == "gpt-5-mini" or m.startswith("gpt-5-mini-")
 
 
 def estimate_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
@@ -165,6 +178,8 @@ class CloudEngine(InferenceEngine):
                 "OPENAI_API_KEY and install "
                 "openjarvis[inference-cloud]"
             )
+        # Extract response_format before spreading kwargs into create_kwargs
+        response_format = kwargs.pop("response_format", None)
         create_kwargs: Dict[str, Any] = {
             "model": model,
             "messages": messages_to_dicts(messages),
@@ -173,6 +188,26 @@ class CloudEngine(InferenceEngine):
         }
         if not _is_openai_reasoning_model(model):
             create_kwargs["temperature"] = temperature
+
+        # Apply structured output / JSON mode
+        if response_format is not None:
+            from openjarvis.engine._stubs import ResponseFormat
+
+            if isinstance(response_format, ResponseFormat):
+                if response_format.type == "json_schema" and response_format.schema:
+                    create_kwargs["response_format"] = {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "response",
+                            "schema": response_format.schema,
+                        },
+                    }
+                else:
+                    create_kwargs["response_format"] = {"type": "json_object"}
+            else:
+                # Raw dict pass-through for backward compatibility
+                create_kwargs["response_format"] = response_format
+
         t0 = time.monotonic()
         resp = self._openai_client.chat.completions.create(**create_kwargs)
         elapsed = time.monotonic() - t0
@@ -221,12 +256,54 @@ class CloudEngine(InferenceEngine):
                 "ANTHROPIC_API_KEY and install "
                 "openjarvis[inference-cloud]"
             )
-        # Separate system message from conversation messages
+        # Separate system message and convert to Anthropic message format
         system_text = ""
         chat_msgs: List[Dict[str, Any]] = []
         for m in messages:
             if m.role.value == "system":
                 system_text = m.content
+            elif m.role.value == "tool":
+                # Anthropic expects tool results as role="user" with
+                # tool_result content blocks
+                tool_result_block = {
+                    "type": "tool_result",
+                    "tool_use_id": m.tool_call_id or "",
+                    "content": m.content,
+                }
+                # Merge consecutive tool results into a single user message
+                if (
+                    chat_msgs
+                    and chat_msgs[-1]["role"] == "user"
+                    and isinstance(chat_msgs[-1]["content"], list)
+                    and chat_msgs[-1]["content"]
+                    and chat_msgs[-1]["content"][-1].get("type") == "tool_result"
+                ):
+                    chat_msgs[-1]["content"].append(tool_result_block)
+                else:
+                    chat_msgs.append({
+                        "role": "user",
+                        "content": [tool_result_block],
+                    })
+            elif m.role.value == "assistant" and m.tool_calls:
+                # Convert assistant messages with tool_calls to Anthropic
+                # content blocks (text + tool_use)
+                content_blocks: List[Dict[str, Any]] = []
+                if m.content:
+                    content_blocks.append({"type": "text", "text": m.content})
+                for tc in m.tool_calls:
+                    args = tc.arguments
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except (json.JSONDecodeError, TypeError):
+                            args = {"input": args}
+                    content_blocks.append({
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.name,
+                        "input": args if isinstance(args, dict) else {},
+                    })
+                chat_msgs.append({"role": "assistant", "content": content_blocks})
             else:
                 chat_msgs.append({"role": m.role.value, "content": m.content})
         create_kwargs: Dict[str, Any] = {
@@ -242,6 +319,26 @@ class CloudEngine(InferenceEngine):
         raw_tools = kwargs.pop("tools", None)
         if raw_tools:
             create_kwargs["tools"] = _convert_tools_to_anthropic(raw_tools)
+
+        # Apply structured output via Anthropic's tool_choice pattern
+        response_format = kwargs.pop("response_format", None)
+        if response_format is not None:
+            from openjarvis.engine._stubs import ResponseFormat
+
+            if isinstance(response_format, ResponseFormat):
+                json_tool = {
+                    "name": "json_output",
+                    "description": "Output structured JSON response",
+                    "input_schema": response_format.schema or {"type": "object"},
+                }
+                if "tools" not in create_kwargs:
+                    create_kwargs["tools"] = [json_tool]
+                else:
+                    create_kwargs["tools"].append(json_tool)
+                create_kwargs["tool_choice"] = {
+                    "type": "tool",
+                    "name": "json_output",
+                }
 
         t0 = time.monotonic()
         resp = self._anthropic_client.messages.create(**create_kwargs)
@@ -299,12 +396,50 @@ class CloudEngine(InferenceEngine):
                 "GEMINI_API_KEY or GOOGLE_API_KEY and install "
                 "openjarvis[inference-google]"
             )
-        # Build contents from messages
+        # Build contents from messages, converting tool roles for Gemini
         system_text = ""
         contents: List[Dict[str, Any]] = []
         for m in messages:
             if m.role.value == "system":
                 system_text = m.content
+            elif m.role.value == "tool":
+                # Gemini expects function responses as role="user" with
+                # function_response parts
+                fn_resp_part = {
+                    "function_response": {
+                        "name": m.name or "unknown",
+                        "response": {"result": m.content},
+                    }
+                }
+                # Merge consecutive tool results into a single user message
+                if (
+                    contents
+                    and contents[-1]["role"] == "user"
+                    and contents[-1]["parts"]
+                    and "function_response" in contents[-1]["parts"][-1]
+                ):
+                    contents[-1]["parts"].append(fn_resp_part)
+                else:
+                    contents.append({"role": "user", "parts": [fn_resp_part]})
+            elif m.role.value == "assistant" and m.tool_calls:
+                # Convert assistant tool_calls to function_call parts
+                parts: List[Dict[str, Any]] = []
+                if m.content:
+                    parts.append({"text": m.content})
+                for tc in m.tool_calls:
+                    args = tc.arguments
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except (json.JSONDecodeError, TypeError):
+                            args = {"input": args}
+                    parts.append({
+                        "function_call": {
+                            "name": tc.name,
+                            "args": args if isinstance(args, dict) else {},
+                        }
+                    })
+                contents.append({"role": "model", "parts": parts})
             elif m.role.value == "assistant":
                 contents.append({"role": "model", "parts": [{"text": m.content}]})
             else:
@@ -324,6 +459,16 @@ class CloudEngine(InferenceEngine):
         if raw_tools:
             declarations = _convert_tools_to_google(raw_tools)
             config.tools = [{"function_declarations": declarations}]
+
+        # Apply structured output / JSON mode for Google
+        response_format = kwargs.pop("response_format", None)
+        if response_format is not None:
+            from openjarvis.engine._stubs import ResponseFormat
+
+            if isinstance(response_format, ResponseFormat):
+                config.response_mime_type = "application/json"
+                if response_format.schema:
+                    config.response_schema = response_format.schema
 
         t0 = time.monotonic()
         resp = self._google_client.models.generate_content(

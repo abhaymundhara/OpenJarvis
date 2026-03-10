@@ -182,6 +182,85 @@ class TestCloudModelSpecs:
 # ---------------------------------------------------------------------------
 
 
+class TestQwen35ModelSpecs:
+    """Verify Qwen3.5 MoE model entries."""
+
+    def test_qwen35_3b(self) -> None:
+        spec = _get_spec("qwen3.5:3b")
+        assert spec.parameter_count_b == 3.0
+        assert spec.active_parameter_count_b == 0.6
+        assert spec.context_length == 131072
+        assert spec.provider == "alibaba"
+        assert spec.metadata["architecture"] == "moe"
+        for e in ("ollama", "vllm", "llamacpp", "sglang"):
+            assert e in spec.supported_engines
+
+    def test_qwen35_8b(self) -> None:
+        spec = _get_spec("qwen3.5:8b")
+        assert spec.parameter_count_b == 8.0
+        assert spec.active_parameter_count_b == 1.0
+        assert spec.context_length == 131072
+
+    def test_qwen35_14b(self) -> None:
+        spec = _get_spec("qwen3.5:14b")
+        assert spec.parameter_count_b == 14.0
+        assert spec.active_parameter_count_b == 2.0
+
+    def test_qwen35_35b(self) -> None:
+        spec = _get_spec("qwen3.5:35b")
+        assert spec.parameter_count_b == 35.0
+        assert spec.active_parameter_count_b == 3.0
+        assert "llamacpp" not in spec.supported_engines
+
+    def test_qwen35_122b(self) -> None:
+        spec = _get_spec("qwen3.5:122b")
+        assert spec.parameter_count_b == 122.0
+        assert spec.active_parameter_count_b == 10.0
+        assert spec.min_vram_gb == 70.0
+
+    def test_qwen35_397b(self) -> None:
+        spec = _get_spec("qwen3.5:397b")
+        assert spec.parameter_count_b == 397.0
+        assert spec.active_parameter_count_b == 17.0
+        assert spec.min_vram_gb == 220.0
+        assert "ollama" not in spec.supported_engines
+        assert "vllm" in spec.supported_engines
+
+
+class TestIBMGraniteModelSpecs:
+    """Verify IBM Granite model entries."""
+
+    def test_granite33_8b(self) -> None:
+        spec = _get_spec("granite3.3:8b")
+        assert spec.parameter_count_b == 8.0
+        assert spec.context_length == 128000
+        assert spec.provider == "ibm"
+        assert spec.metadata["architecture"] == "dense"
+        assert "ollama" in spec.supported_engines
+        assert "vllm" in spec.supported_engines
+
+    def test_granite40_micro(self) -> None:
+        spec = _get_spec("granite4.0-micro")
+        assert spec.parameter_count_b == 3.0
+        assert spec.context_length == 128000
+        assert spec.provider == "ibm"
+        assert spec.metadata["architecture"] == "dense"
+
+    def test_granite40_h_small(self) -> None:
+        spec = _get_spec("granite4.0-h-small")
+        assert spec.parameter_count_b == 32.0
+        assert spec.active_parameter_count_b == 9.0
+        assert spec.context_length == 128000
+        assert spec.provider == "ibm"
+        assert spec.metadata["architecture"] == "moe"
+
+    def test_granite_models_have_url(self) -> None:
+        for mid in ("granite3.3:8b", "granite4.0-micro", "granite4.0-h-small"):
+            spec = _get_spec(mid)
+            assert "url" in spec.metadata
+            assert "ibm.com" in spec.metadata["url"]
+
+
 class TestModelDiscovery:
     def test_local_models_have_engine_compat(self) -> None:
         """Every local model has at least one supported engine."""
@@ -194,7 +273,7 @@ class TestModelDiscovery:
     def test_cloud_models_require_api_key(self) -> None:
         """All cloud models have requires_api_key=True."""
         cloud_ids = {
-            "gpt-4o", "gpt-4o-mini", "gpt-5-mini",
+            "gpt-4o", "gpt-4o-mini", "gpt-5-mini", "gpt-5-mini-2025-08-07",
             "claude-sonnet-4-20250514", "claude-opus-4-20250514",
             "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5",
             "gemini-2.5-pro", "gemini-2.5-flash", "gemini-3-pro", "gemini-3-flash",
@@ -207,7 +286,12 @@ class TestModelDiscovery:
 
     def test_moe_models_have_active_params(self) -> None:
         """MoE models have active_parameter_count_b set."""
-        moe_ids = {"gpt-oss:120b", "glm-4.7-flash", "trinity-mini"}
+        moe_ids = {
+            "gpt-oss:120b", "glm-4.7-flash", "trinity-mini",
+            "qwen3.5:3b", "qwen3.5:8b", "qwen3.5:14b",
+            "qwen3.5:35b", "qwen3.5:122b", "qwen3.5:397b",
+            "granite4.0-h-small",
+        }
         for spec in BUILTIN_MODELS:
             if spec.model_id in moe_ids:
                 assert spec.active_parameter_count_b is not None

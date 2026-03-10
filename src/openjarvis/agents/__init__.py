@@ -1,4 +1,4 @@
-"""Agents pillar — multi-turn reasoning and tool use."""
+"""Agents primitive — multi-turn reasoning and tool use."""
 
 from __future__ import annotations
 
@@ -52,6 +52,16 @@ except ImportError:
 
 try:
     import openjarvis.agents.operative  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.agents.monitor  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.agents.monitor_operative  # noqa: F401
 except ImportError:
     pass
 

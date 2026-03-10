@@ -67,8 +67,7 @@ All notable changes to OpenJarvis are documented in this file.
 
 ### Changed
 
-- `ChannelRegistry` now includes `WhatsAppBaileysChannel` alongside
-  `OpenClawChannelBridge`.
+- `ChannelRegistry` now includes `WhatsAppBaileysChannel`.
 - `AgentRegistry` now includes `ClaudeCodeAgent` (`"claude_code"`).
 - Architecture overview and source directory layout updated to reflect new
   `sandbox/` and `scheduler/` modules.
@@ -132,14 +131,6 @@ All notable changes to OpenJarvis are documented in this file.
     - Router policy selection via config (`learning.default_policy`)
     - Lazy engine initialization with automatic discovery and health probing
     - Resource cleanup via `close()`
-- **OpenClaw agent infrastructure**
-    - `OpenClawAgent` with HTTP and subprocess transports
-    - `ProtocolMessage` dataclass with JSON-line serialization/deserialization
-    - `MessageType` enum for structured agent communication
-    - `HttpTransport` for HTTP POST-based communication with OpenClaw servers
-    - `SubprocessTransport` for Node.js stdin/stdout communication
-    - `ProviderPlugin` wrapping inference engines for OpenClaw
-    - `MemorySearchManager` wrapping memory backends for OpenClaw
 - **Benchmarking framework**
     - `BaseBenchmark` ABC and `BenchmarkSuite` runner
     - `LatencyBenchmark` measuring per-call latency (mean, p50, p95, min, max)
@@ -207,8 +198,6 @@ All notable changes to OpenJarvis are documented in this file.
     - `OrchestratorAgent` -- multi-turn tool-calling loop with `ToolExecutor`,
       configurable `max_turns`
     - `CustomAgent` -- template for user-defined agent behavior
-    - `OpenClawAgent` -- transport-based agent with tool-call loop and event
-      bus integration
 - **Tool system**
     - `BaseTool` ABC with `spec` property and `execute()` method
     - `ToolSpec` dataclass describing tool interface and characteristics
@@ -275,7 +264,7 @@ All notable changes to OpenJarvis are documented in this file.
 
 ### Added
 
-- **Intelligence pillar**
+- **Intelligence primitive**
     - `ModelSpec` dataclass with parameter count, context length, quantization,
       VRAM requirements, and supported engines
     - `ModelRegistry` for model metadata storage
@@ -336,6 +325,6 @@ All notable changes to OpenJarvis are documented in this file.
   overlay semantics, hardware auto-detection, `generate_default_toml()` for
   `jarvis init`
 - **Event bus** -- Synchronous pub/sub `EventBus` with `EventType` enum for
-  inter-pillar communication
+  inter-primitive communication
 - **CLI skeleton** -- Click-based `jarvis` command group with `--version`,
   `--help`, and `init` subcommand

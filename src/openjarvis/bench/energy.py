@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Optional
 
@@ -9,6 +10,8 @@ from openjarvis.bench._stubs import BaseBenchmark, BenchmarkResult
 from openjarvis.core.registry import BenchmarkRegistry
 from openjarvis.core.types import Message, Role
 from openjarvis.engine._stubs import InferenceEngine
+
+logger = logging.getLogger(__name__)
 
 _PROMPT = "Write a short paragraph about artificial intelligence."
 
@@ -40,8 +43,8 @@ class EnergyBenchmark(BaseBenchmark):
         for _ in range(warmup_samples):
             try:
                 engine.generate(messages, model=model)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Warmup request failed: %s", exc)
 
         # --- Measurement phase ---
         total_tokens = 0
@@ -70,7 +73,8 @@ class EnergyBenchmark(BaseBenchmark):
                         total_time += elapsed
                         throughput = tokens / elapsed if elapsed > 0 else 0.0
                         detector.record(throughput)
-                    except Exception:
+                    except Exception as exc:
+                        logger.debug("Measurement request failed: %s", exc)
                         errors += 1
 
             if batch.metrics is not None:
@@ -88,7 +92,8 @@ class EnergyBenchmark(BaseBenchmark):
                     tokens = usage.get("completion_tokens", 0)
                     total_tokens += tokens
                     total_time += elapsed
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Measurement request failed: %s", exc)
                     errors += 1
             ss_result = None
 

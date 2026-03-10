@@ -100,7 +100,7 @@ class TestRecordingTrackerIntegration:
         from openjarvis.evals.core.runner import EvalRunner
 
         # Minimal stubs
-        dataset = MagicMock()
+        dataset = MagicMock(spec=["load", "iter_records"])
         record = MagicMock()
         record.record_id = "r1"
         record.problem = "What is 1+1?"
@@ -141,7 +141,7 @@ class TestRecordingTrackerIntegration:
         """A tracker that raises exceptions must not prevent JSONL output."""
         from openjarvis.evals.core.runner import EvalRunner
 
-        dataset = MagicMock()
+        dataset = MagicMock(spec=["load", "iter_records"])
         record = MagicMock()
         record.record_id = "r1"
         record.problem = "What?"

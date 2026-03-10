@@ -20,7 +20,7 @@ TEMPLATES_DIR = (
     / "data"
 )
 
-VALID_AGENT_TYPES = {"simple", "orchestrator", "native_react"}
+VALID_AGENT_TYPES = {"simple", "orchestrator", "native_react", "monitor"}
 
 
 def test_load_single_template() -> None:

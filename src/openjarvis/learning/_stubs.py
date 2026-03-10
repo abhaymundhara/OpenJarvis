@@ -1,4 +1,4 @@
-"""Learning pillar ABCs — router policies, reward functions, and learning policies."""
+"""Learning primitive ABCs -- router policies, reward functions, learning policies."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class RewardFunction(ABC):
 
 
 class LearningPolicy(ABC):
-    """Base for all learning policies. Targets one or more pillars."""
+    """Base for all learning policies. Targets one or more primitives."""
 
     target: ClassVar[str] = ""  # "intelligence" | "agent"
 

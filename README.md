@@ -1,15 +1,11 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/openjarvis-logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/openjarvis-logo-light.svg">
-    <img alt="OpenJarvis" src="assets/openjarvis-logo-light.svg" width="400">
-  </picture>
+  <img alt="OpenJarvis" src="assets/OpenJarvis_Horizontal_Logo.png" width="400">
 
-  <p><i>Programming abstractions for on-device AI.</i></p>
+  <p><i>Composable, Programmable Systems for On-Device, Personal AI.</i></p>
 
   <p>
     <a href="https://www.intelligence-per-watt.ai/"><img src="https://img.shields.io/badge/project-intelligence--per--watt.ai-blue" alt="Project"></a>
-    <a href="https://hazyresearch.stanford.edu/OpenJarvis/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
+    <a href="https://open-jarvis.github.io/OpenJarvis/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="Docs"></a>
     <img src="https://img.shields.io/badge/python-%3E%3D3.10-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License">
   </p>
@@ -17,7 +13,7 @@
 
 ---
 
-> **[Documentation](https://hazyresearch.stanford.edu/OpenJarvis/)**
+> **[Documentation](https://open-jarvis.github.io/OpenJarvis/)**
 >
 > **[Project Site](https://www.intelligence-per-watt.ai/)**
 
@@ -74,17 +70,24 @@ jarvis doctor
 
 `jarvis init` auto-detects your hardware and recommends the best engine. After init, it prints engine-specific next steps. Run `jarvis doctor` at any time to diagnose configuration or connectivity issues.
 
-## The Five Pillars
+## Development
 
-| Pillar | What it does | Key abstractions |
-|--------|-------------|-----------------|
-| **Intelligence** | Model management and routing | `RouterPolicy`, `QueryAnalyzer`, `ModelCatalog` |
-| **Engine** | Inference runtime abstraction | `InferenceEngine` ABC — Ollama, vLLM, SGLang, llama.cpp, MLX |
-| **Agents** | Pluggable reasoning strategies | `BaseAgent` ABC — Simple, Orchestrator, ReAct, OpenHands, OpenClaw |
-| **Tools** | Capabilities via MCP | `BaseTool` ABC — calculator, code interpreter, web search, memory; external MCP servers auto-discovered |
-| **Learning** | Trace-driven adaptation | `LearningPolicy` ABC — SFT (model routing), AgentAdvisor (restructuring), ICL (tool usage) |
+From source, you need the Rust extension for full functionality (security, tools, agents, etc.):
 
-Every interaction produces a **Trace** — a structured record of the full reasoning chain. Learning policies consume traces to improve model selection, agent behavior, and tool usage over time.
+```bash
+# 1. Clone and install Python deps
+git clone https://github.com/open-jarvis/OpenJarvis.git
+cd OpenJarvis
+uv sync --extra dev
+
+# 2. Build and install the Rust extension (requires Rust toolchain)
+uv run maturin develop -m rust/crates/openjarvis-python/Cargo.toml
+
+# 3. Run tests
+uv run pytest tests/ -v
+```
+
+See [Contributing](docs/development/contributing.md) for more.
 
 ## About
 
@@ -96,7 +99,10 @@ OpenJarvis is part of [Intelligence Per Watt](https://www.intelligence-per-watt.
   <a href="https://www.laude.org/">Laude Institute</a> &bull;
   <a href="https://datascience.stanford.edu/marlowe">Stanford Marlowe</a> &bull;
   <a href="https://cloud.google.com/">Google Cloud Platform</a> &bull;
-  <a href="https://lambda.ai/">Lambda Labs</a>
+  <a href="https://lambda.ai/">Lambda Labs</a> &bull;
+  <a href="https://ollama.com/">Ollama</a> &bull;
+  <a href="https://research.ibm.com/">IBM Research</a> &bull;
+  <a href="https://hai.stanford.edu/">Stanford HAI</a>
 </p>
 
 ## License

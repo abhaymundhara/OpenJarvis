@@ -106,7 +106,7 @@ fn rig_request_to_oj_messages(request: &CompletionRequest) -> Vec<Message> {
             .map(|d| format!("[{}]\n{}", d.id, d.text))
             .collect::<Vec<_>>()
             .join("\n\n");
-        messages.push(Message::system(&format!(
+        messages.push(Message::system(format!(
             "Relevant context:\n{}",
             doc_context
         )));
@@ -215,22 +215,18 @@ impl<E: InferenceEngine + 'static> rig::completion::request::CompletionModel
         }
     }
 
-    fn stream(
+    async fn stream(
         &self,
         _request: CompletionRequest,
-    ) -> impl std::future::Future<
-        Output = Result<
-            rig::streaming::StreamingCompletionResponse<Self::StreamingResponse>,
-            CompletionError,
-        >,
-    > + Send {
-        async move {
-            // Our engines use blocking HTTP clients. Streaming is not supported
-            // through the rig adapter — callers should use `completion()` instead.
-            Err(CompletionError::ProviderError(
-                "Streaming not supported through RigModelAdapter; use completion() instead".into(),
-            ))
-        }
+    ) -> Result<
+        rig::streaming::StreamingCompletionResponse<Self::StreamingResponse>,
+        CompletionError,
+    > {
+        // Our engines use blocking HTTP clients. Streaming is not supported
+        // through the rig adapter — callers should use `completion()` instead.
+        Err(CompletionError::ProviderError(
+            "Streaming not supported through RigModelAdapter; use completion() instead".into(),
+        ))
     }
 }
 

@@ -1,4 +1,4 @@
-"""Learning pillar — router policies, reward functions, and trace-driven learning."""
+"""Learning primitive — router policies, reward functions, and trace-driven learning."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ from openjarvis.learning._stubs import (
 from openjarvis.learning.agent_evolver import AgentConfigEvolver
 from openjarvis.learning.heuristic_reward import HeuristicRewardFunction
 from openjarvis.learning.learning_orchestrator import LearningOrchestrator
+from openjarvis.learning.optimize.llm_optimizer import LLMOptimizer
+from openjarvis.learning.optimize.optimizer import OptimizationEngine
+from openjarvis.learning.optimize.store import OptimizationStore
 from openjarvis.learning.router import (
     HeuristicRouter,
     build_routing_context,
@@ -22,7 +25,7 @@ from openjarvis.learning.training.lora import HAS_TORCH, LoRATrainer, LoRATraini
 def ensure_registered() -> None:
     """Ensure all learning policies are registered in RouterPolicyRegistry.
 
-    Imported lazily to avoid circular imports with the intelligence pillar.
+    Imported lazily to avoid circular imports with the intelligence primitive.
     """
     from openjarvis.learning.heuristic_policy import (
         ensure_registered as _reg_heuristic,
@@ -81,9 +84,12 @@ __all__ = [
     "HAS_TORCH",
     "HeuristicRewardFunction",
     "HeuristicRouter",
+    "LLMOptimizer",
     "LearningOrchestrator",
     "LoRATrainer",
     "LoRATrainingConfig",
+    "OptimizationEngine",
+    "OptimizationStore",
     "QueryAnalyzer",
     "RewardFunction",
     "RouterPolicy",

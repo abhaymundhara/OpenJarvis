@@ -207,5 +207,5 @@ The default path is `~/.openjarvis/audit.db`, configurable via `security.audit_l
 ## See Also
 
 - [User Guide: Security](../user-guide/security.md) — how to configure and use the security system
-- [API Reference: Security](../api/security.md) — complete class and function signatures
+- [API Reference: Security](../api-reference/openjarvis/security/index.md) — complete class and function signatures
 - [Architecture: Query Flow](query-flow.md) — where security sits in the overall request lifecycle

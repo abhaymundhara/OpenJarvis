@@ -14,15 +14,12 @@ impl TraceStore {
     pub fn new(db_path: &Path) -> Result<Self, OpenJarvisError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                OpenJarvisError::Io(std::io::Error::other(e))
             })?;
         }
 
         let conn = Connection::open(db_path).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
+            OpenJarvisError::Io(std::io::Error::other(e.to_string()))
         })?;
 
         conn.execute_batch(
@@ -44,10 +41,7 @@ impl TraceStore {
             )",
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
+            OpenJarvisError::Io(std::io::Error::other(e.to_string()))
         })?;
 
         Ok(Self {
@@ -89,10 +83,7 @@ impl TraceStore {
             ],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                e.to_string(),
-            ))
+            OpenJarvisError::Io(std::io::Error::other(e.to_string()))
         })?;
 
         Ok(())
@@ -108,8 +99,7 @@ impl TraceStore {
                  FROM traces WHERE trace_id = ?1",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -160,8 +150,7 @@ impl TraceStore {
                  FROM traces ORDER BY started_at DESC LIMIT ?1 OFFSET ?2",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -194,8 +183,7 @@ impl TraceStore {
                 })
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?
@@ -210,8 +198,7 @@ impl TraceStore {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM traces", [], |row| row.get(0))
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;

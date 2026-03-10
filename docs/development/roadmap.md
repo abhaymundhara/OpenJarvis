@@ -1,7 +1,7 @@
 # Roadmap
 
 OpenJarvis development follows a phased approach, with each version adding
-a major pillar or cross-cutting capability to the framework.
+a major primitive or cross-cutting capability to the framework.
 
 ---
 
@@ -10,11 +10,11 @@ a major pillar or cross-cutting capability to the framework.
 | Version | Phase | Status | Delivers |
 |---|---|---|---|
 | **v0.1** | Phase 0 -- Scaffolding | :material-check-circle:{ .green } Complete | Project scaffolding, registry system (`RegistryBase[T]`), core types (`Message`, `ModelSpec`, `Conversation`, `ToolResult`), configuration loader with hardware detection, Click CLI skeleton |
-| **v0.2** | Phase 1 -- Intelligence + Inference | :material-check-circle:{ .green } Complete | Intelligence pillar (model catalog, heuristic router), inference engines (Ollama, vLLM, llama.cpp), engine discovery and health probing, `jarvis ask` command working end-to-end |
+| **v0.2** | Phase 1 -- Intelligence + Inference | :material-check-circle:{ .green } Complete | Intelligence primitive (model catalog, heuristic router), inference engines (Ollama, vLLM, llama.cpp), engine discovery and health probing, `jarvis ask` command working end-to-end |
 | **v0.3** | Phase 2 -- Memory | :material-check-circle:{ .green } Complete | Memory backends (SQLite/FTS5, FAISS, ColBERTv2, BM25, Hybrid/RRF), document chunking and ingestion pipeline, context injection with source attribution, `jarvis memory` commands |
-| **v0.4** | Phase 3 -- Agents + Tools + Server | :material-check-circle:{ .green } Complete | Agent system (SimpleAgent, OrchestratorAgent, OpenClawAgent), tool system (Calculator, Think, Retrieval, LLM, FileRead), ToolExecutor dispatch engine, OpenAI-compatible API server (`jarvis serve`) |
+| **v0.4** | Phase 3 -- Agents + Tools + Server | :material-check-circle:{ .green } Complete | Agent system (SimpleAgent, OrchestratorAgent), tool system (Calculator, Think, Retrieval, LLM, FileRead), ToolExecutor dispatch engine, OpenAI-compatible API server (`jarvis serve`) |
 | **v0.5** | Phase 4 -- Learning + Telemetry | :material-check-circle:{ .green } Complete | Learning system (HeuristicRouter policy, TraceDrivenPolicy, GRPO stub), reward functions, telemetry aggregation (per-model/engine stats, export), `--router` CLI flag, `jarvis telemetry` commands |
-| **v1.0** | Phase 5 -- SDK + Production | :material-check-circle:{ .green } Complete | Python SDK (`Jarvis` class, `MemoryHandle`), OpenClaw agent infrastructure (protocol, transports, plugins), benchmarking framework (latency, throughput), Docker deployment (CPU + GPU), MkDocs documentation site |
+| **v1.0** | Phase 5 -- SDK + Production | :material-check-circle:{ .green } Complete | Python SDK (`Jarvis` class, `MemoryHandle`), multi-platform channel system (Telegram, Discord, Slack, WhatsApp, etc.), benchmarking framework (latency, throughput), Docker deployment (CPU + GPU), MkDocs documentation site |
 | **v1.1** | Phase 6 -- Traces + Learning | :material-check-circle:{ .green } Complete | Trace system (`TraceStore`, `TraceCollector`, `TraceAnalyzer`), trace-driven learning, MCP integration layer |
 | **v1.5** | Phase 10 -- Agent Restructuring | :material-check-circle:{ .green } Complete | BaseAgent helpers, ToolUsingAgent intermediate base, NativeReActAgent, NativeOpenHandsAgent, RLMAgent, OpenHandsAgent (SDK), `accepts_tools` introspection, backward-compat shims, CustomAgent removed |
 
@@ -27,7 +27,7 @@ OpenJarvis v1.5 (Phase 10) is complete. The framework provides:
 - **Four core abstractions** -- Intelligence, Engine, Agentic Logic, Memory -- each with an ABC interface and registry-based discovery
 - **Five inference engines** -- Ollama, vLLM, llama.cpp, SGLang, Cloud (OpenAI/Anthropic/Google)
 - **Five memory backends** -- SQLite/FTS5, FAISS, ColBERTv2, BM25, Hybrid (RRF fusion)
-- **Seven agent types** -- Simple, Orchestrator, NativeReAct, NativeOpenHands, RLM, OpenHands (SDK), OpenClaw
+- **Seven agent types** -- Simple, Orchestrator, NativeReAct, NativeOpenHands, RLM, Operative, MonitorOperative
 - **Seven built-in tools** -- Calculator, Think, Retrieval, LLM, FileRead, WebSearch, CodeInterpreter
 - **Python SDK** -- `Jarvis` class for programmatic use
 - **OpenAI-compatible API server** -- `POST /v1/chat/completions`, `GET /v1/models`

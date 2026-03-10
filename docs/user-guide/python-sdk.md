@@ -201,7 +201,7 @@ print(result["tool_results"])
 # [{"tool_name": "calculator", "content": "51.0", "success": True}]
 ```
 
-Available agents: `simple`, `orchestrator`, `openclaw`, `custom`
+Available agents: `simple`, `orchestrator`, `operative`, `monitor_operative`
 
 Available tools: `calculator`, `think`, `retrieval`, `llm`, `file_read`
 

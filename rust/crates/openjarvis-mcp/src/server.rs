@@ -109,11 +109,10 @@ impl McpServer {
 mod tests {
     use super::*;
     use openjarvis_tools::builtin::calculator::CalculatorTool;
-    use openjarvis_tools::traits::BaseTool;
 
     fn make_server() -> McpServer {
         let mut exec = ToolExecutor::new(None, None);
-        exec.register(Arc::new(CalculatorTool));
+        exec.register(openjarvis_tools::builtin::BuiltinTool::Calculator(CalculatorTool));
         McpServer::new(Arc::new(exec))
     }
 

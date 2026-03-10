@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +15,8 @@ from openjarvis.engine._discovery import get_engine
 from openjarvis.system import JarvisSystem, SystemBuilder
 from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
 from openjarvis.telemetry.store import TelemetryStore
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryHandle:
@@ -126,6 +130,17 @@ class Jarvis:
             response = j.ask("Hello, what can you do?")
             print(response)
 
+        # Streaming:
+        import asyncio
+
+        async def main():
+            j = Jarvis()
+            async for token in j.ask_stream("Tell me a joke"):
+                print(token, end="", flush=True)
+            j.close()
+
+        asyncio.run(main())
+
         # Or without context manager:
         j = Jarvis()
         response = j.ask("Hello")
@@ -162,8 +177,8 @@ class Jarvis:
             try:
                 self._telem_store = TelemetryStore(self._config.telemetry.db_path)
                 self._telem_store.subscribe_to_bus(self._bus)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to initialize telemetry store: %s", exc)
 
         # Set up security audit logger
         if self._config.security.enabled:
@@ -174,8 +189,8 @@ class Jarvis:
                     db_path=self._config.security.audit_log_path,
                     bus=self._bus,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to initialize security audit logger: %s", exc)
 
     @property
     def config(self) -> JarvisConfig:
@@ -230,8 +245,8 @@ class Jarvis:
                         scan_output=self._config.security.scan_output,
                         bus=self._bus,
                     )
-            except Exception:
-                pass  # security is best-effort
+            except Exception as exc:
+                logger.debug("Failed to set up security guardrails: %s", exc)
 
         # Wrap engine with InstrumentedEngine for telemetry + energy
         energy_monitor = None
@@ -242,8 +257,8 @@ class Jarvis:
                 energy_monitor = create_energy_monitor(
                     prefer_vendor=self._config.telemetry.energy_vendor or None,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed to create energy monitor: %s", exc)
         self._energy_monitor = energy_monitor
         self._engine = InstrumentedEngine(
             engine, self._bus, energy_monitor=energy_monitor,
@@ -335,6 +350,98 @@ class Jarvis:
             "engine": self._resolved_engine_key,
         }
 
+    async def ask_stream(
+        self,
+        query: str,
+        *,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        context: bool = True,
+    ) -> AsyncIterator[str]:
+        """Stream tokens as they are generated. Yields token strings."""
+        self._ensure_engine()
+        if temperature is None:
+            temperature = self._config.intelligence.temperature
+        if max_tokens is None:
+            max_tokens = self._config.intelligence.max_tokens
+
+        model_name = model or self._model_override
+
+        if model_name is None:
+            model_name = self._resolve_model(query)
+
+        if not model_name:
+            models = self._engine.list_models()
+            model_name = models[0] if models else "default"
+
+        messages = [Message(role=Role.USER, content=query)]
+
+        if context and self._config.agent.context_from_memory:
+            messages = self._inject_context(query, messages)
+
+        async for token in self._engine.stream(
+            messages,
+            model=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            yield token
+
+    async def ask_full_stream(
+        self,
+        query: str,
+        *,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        context: bool = True,
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Stream token dicts with metadata.
+
+        Yields dicts with ``token`` and ``index`` keys for each token.
+        The final dict has ``done: True`` along with the full concatenated
+        ``content``, ``model``, and ``engine`` keys.
+        """
+        self._ensure_engine()
+        if temperature is None:
+            temperature = self._config.intelligence.temperature
+        if max_tokens is None:
+            max_tokens = self._config.intelligence.max_tokens
+
+        model_name = model or self._model_override
+
+        if model_name is None:
+            model_name = self._resolve_model(query)
+
+        if not model_name:
+            models = self._engine.list_models()
+            model_name = models[0] if models else "default"
+
+        messages = [Message(role=Role.USER, content=query)]
+
+        if context and self._config.agent.context_from_memory:
+            messages = self._inject_context(query, messages)
+
+        parts: List[str] = []
+        i = 0
+        async for token in self._engine.stream(
+            messages,
+            model=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            parts.append(token)
+            yield {"token": token, "index": i}
+            i += 1
+
+        yield {
+            "done": True,
+            "content": "".join(parts),
+            "model": model_name,
+            "engine": self._resolved_engine_key,
+        }
+
     def _resolve_model(self, query: str) -> Optional[str]:
         """Resolve model using config fallback chain."""
         if self._config.intelligence.default_model:
@@ -344,8 +451,8 @@ class Jarvis:
             models = self._engine.list_models()
             if models:
                 return models[0]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to list models from engine: %s", exc)
         return self._config.intelligence.fallback_model or None
 
     def _run_agent(
@@ -415,8 +522,8 @@ class Jarvis:
                     )
                     for msg in context_messages:
                         ctx.conversation.add(msg)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to inject memory context for agent: %s", exc)
 
         result = agent_obj.run(query, context=ctx)
         return {
@@ -451,8 +558,8 @@ class Jarvis:
                     max_context_tokens=self._config.memory.context_max_tokens,
                 )
                 return inject_context(query, messages, backend, config=ctx_cfg)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to inject memory context: %s", exc)
         return messages
 
     def list_models(self) -> List[str]:
@@ -472,20 +579,20 @@ class Jarvis:
         if self._energy_monitor is not None:
             try:
                 self._energy_monitor.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Error closing energy monitor: %s", exc)
             self._energy_monitor = None
         if self._telem_store is not None:
             try:
                 self._telem_store.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Error closing telemetry store: %s", exc)
             self._telem_store = None
         if self._audit_logger is not None:
             try:
                 self._audit_logger.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Error closing audit logger: %s", exc)
             self._audit_logger = None
         self._engine = None
 

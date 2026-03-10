@@ -449,6 +449,6 @@ guarded = GuardrailsEngine(
 ## See Also
 
 - [Architecture: Security](../architecture/security.md) — pipeline design, event flow, and file policy integration
-- [API Reference: Security](../api/security.md) — full class and function signatures
+- [API Reference: Security](../api-reference/openjarvis/security/index.md) — full class and function signatures
 - [Tools](tools.md) — how `FileReadTool` uses file policy
 - [Configuration](../getting-started/configuration.md) — full config reference

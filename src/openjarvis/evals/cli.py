@@ -27,6 +27,8 @@ from openjarvis.evals.core.display import (
     print_suite_summary,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 # Registry of available benchmarks and their metadata
 BENCHMARKS = {
     "supergpqa": {"category": "reasoning", "description": "SuperGPQA multiple-choice"},
@@ -49,6 +51,74 @@ BENCHMARKS = {
         "category": "agentic",
         "description": "TerminalBench Native (Docker)",
     },
+    "email_triage": {
+        "category": "use-case",
+        "description": "Email triage classification + draft",
+    },
+    "morning_brief": {
+        "category": "use-case",
+        "description": "Morning briefing generation",
+    },
+    "research_mining": {
+        "category": "use-case",
+        "description": "Research synthesis + accuracy",
+    },
+    "knowledge_base": {
+        "category": "use-case",
+        "description": "Document-grounded retrieval QA",
+    },
+    "coding_task": {
+        "category": "use-case",
+        "description": "Function-level code generation",
+    },
+    "loghub": {
+        "category": "agentic",
+        "description": "LogHub log anomaly detection",
+    },
+    "ama-bench": {
+        "category": "agentic",
+        "description": "AMA-Bench agent memory assessment",
+    },
+    "lifelong-agent": {
+        "category": "agentic",
+        "description": "LifelongAgentBench sequential task learning",
+    },
+    "deepplanning": {
+        "category": "agentic",
+        "description": "DeepPlanning shopping constraints",
+    },
+    "paperarena": {
+        "category": "agentic",
+        "description": "PaperArena paper analysis",
+    },
+    "webchorearena": {
+        "category": "agentic",
+        "description": "WebChoreArena web chore tasks",
+    },
+    "workarena": {
+        "category": "agentic",
+        "description": "WorkArena++ enterprise workflows",
+    },
+    "coding_assistant": {
+        "category": "use-case",
+        "description": "Bug-fix coding assistant (test-based)",
+    },
+    "security_scanner": {
+        "category": "use-case",
+        "description": "Security vulnerability scanner",
+    },
+    "daily_digest": {
+        "category": "use-case",
+        "description": "Daily briefing generation",
+    },
+    "doc_qa": {
+        "category": "use-case",
+        "description": "Document-grounded QA with citations",
+    },
+    "browser_assistant": {
+        "category": "use-case",
+        "description": "Web research with fact verification",
+    },
 }
 
 BACKENDS = {
@@ -68,7 +138,8 @@ def _setup_logging(verbose: bool) -> None:
 
 def _build_backend(backend_name: str, engine_key: Optional[str],
                     agent_name: str, tools: list[str],
-                    telemetry: bool = False, gpu_metrics: bool = False):
+                    telemetry: bool = False, gpu_metrics: bool = False,
+                    model: Optional[str] = None):
     """Construct the appropriate backend."""
     if backend_name == "jarvis-agent":
         from openjarvis.evals.backends.jarvis_agent import JarvisAgentBackend
@@ -78,6 +149,7 @@ def _build_backend(backend_name: str, engine_key: Optional[str],
             tools=tools,
             telemetry=telemetry,
             gpu_metrics=gpu_metrics,
+            model=model,
         )
     else:
         from openjarvis.evals.backends.jarvis_direct import JarvisDirectBackend
@@ -88,7 +160,7 @@ def _build_backend(backend_name: str, engine_key: Optional[str],
         )
 
 
-def _build_dataset(benchmark: str):
+def _build_dataset(benchmark: str, subset: str | None = None):
     """Construct the dataset provider for a benchmark."""
     if benchmark == "supergpqa":
         from openjarvis.evals.datasets.supergpqa import SuperGPQADataset
@@ -137,6 +209,57 @@ def _build_dataset(benchmark: str):
             TerminalBenchNativeDataset,
         )
         return TerminalBenchNativeDataset()
+    elif benchmark == "email_triage":
+        from openjarvis.evals.datasets.email_triage import EmailTriageDataset
+        return EmailTriageDataset()
+    elif benchmark == "morning_brief":
+        from openjarvis.evals.datasets.morning_brief import MorningBriefDataset
+        return MorningBriefDataset()
+    elif benchmark == "research_mining":
+        from openjarvis.evals.datasets.research_mining import ResearchMiningDataset
+        return ResearchMiningDataset()
+    elif benchmark == "knowledge_base":
+        from openjarvis.evals.datasets.knowledge_base import KnowledgeBaseDataset
+        return KnowledgeBaseDataset()
+    elif benchmark == "coding_task":
+        from openjarvis.evals.datasets.coding_task import CodingTaskDataset
+        return CodingTaskDataset()
+    elif benchmark == "loghub":
+        from openjarvis.evals.datasets.loghub import LogHubDataset
+        return LogHubDataset()
+    elif benchmark == "ama-bench":
+        from openjarvis.evals.datasets.ama_bench import AMABenchDataset
+        return AMABenchDataset()
+    elif benchmark == "lifelong-agent":
+        from openjarvis.evals.datasets.lifelong_agent import LifelongAgentDataset
+        return LifelongAgentDataset(subset=subset or "db_bench")
+    elif benchmark == "deepplanning":
+        from openjarvis.evals.datasets.deepplanning import DeepPlanningDataset
+        return DeepPlanningDataset()
+    elif benchmark == "paperarena":
+        from openjarvis.evals.datasets.paperarena import PaperArenaDataset
+        return PaperArenaDataset()
+    elif benchmark == "webchorearena":
+        from openjarvis.evals.datasets.webchorearena import WebChoreArenaDataset
+        return WebChoreArenaDataset()
+    elif benchmark == "workarena":
+        from openjarvis.evals.datasets.workarena import WorkArenaDataset
+        return WorkArenaDataset()
+    elif benchmark == "coding_assistant":
+        from openjarvis.evals.datasets.coding_assistant import CodingAssistantDataset
+        return CodingAssistantDataset()
+    elif benchmark == "security_scanner":
+        from openjarvis.evals.datasets.security_scanner import SecurityScannerDataset
+        return SecurityScannerDataset()
+    elif benchmark == "daily_digest":
+        from openjarvis.evals.datasets.daily_digest import DailyDigestDataset
+        return DailyDigestDataset()
+    elif benchmark == "doc_qa":
+        from openjarvis.evals.datasets.doc_qa import DocQADataset
+        return DocQADataset()
+    elif benchmark == "browser_assistant":
+        from openjarvis.evals.datasets.browser_assistant import BrowserAssistantDataset
+        return BrowserAssistantDataset()
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
@@ -187,14 +310,80 @@ def _build_scorer(benchmark: str, judge_backend, judge_model: str):
             TerminalBenchNativeScorer,
         )
         return TerminalBenchNativeScorer(judge_backend, judge_model)
+    elif benchmark == "email_triage":
+        from openjarvis.evals.scorers.email_triage import EmailTriageScorer
+        return EmailTriageScorer(judge_backend, judge_model)
+    elif benchmark == "morning_brief":
+        from openjarvis.evals.scorers.morning_brief import MorningBriefScorer
+        return MorningBriefScorer(judge_backend, judge_model)
+    elif benchmark == "research_mining":
+        from openjarvis.evals.scorers.research_mining import ResearchMiningScorer
+        return ResearchMiningScorer(judge_backend, judge_model)
+    elif benchmark == "knowledge_base":
+        from openjarvis.evals.scorers.knowledge_base import KnowledgeBaseScorer
+        return KnowledgeBaseScorer(judge_backend, judge_model)
+    elif benchmark == "coding_task":
+        from openjarvis.evals.scorers.coding_task import CodingTaskScorer
+        return CodingTaskScorer(judge_backend, judge_model)
+    elif benchmark == "loghub":
+        from openjarvis.evals.scorers.loghub_scorer import LogHubScorer
+        return LogHubScorer(judge_backend, judge_model)
+    elif benchmark == "ama-bench":
+        from openjarvis.evals.scorers.ama_bench_judge import AMABenchScorer
+        return AMABenchScorer(judge_backend, judge_model)
+    elif benchmark == "lifelong-agent":
+        from openjarvis.evals.scorers.lifelong_agent_scorer import LifelongAgentScorer
+        return LifelongAgentScorer(judge_backend, judge_model)
+    elif benchmark == "deepplanning":
+        from openjarvis.evals.scorers.deepplanning_scorer import DeepPlanningScorer
+        return DeepPlanningScorer(judge_backend, judge_model)
+    elif benchmark == "paperarena":
+        from openjarvis.evals.scorers.paperarena_judge import PaperArenaScorer
+        return PaperArenaScorer(judge_backend, judge_model)
+    elif benchmark == "webchorearena":
+        from openjarvis.evals.scorers.webchorearena_scorer import WebChoreArenaScorer
+        return WebChoreArenaScorer(judge_backend, judge_model)
+    elif benchmark == "workarena":
+        from openjarvis.evals.scorers.workarena_scorer import WorkArenaScorer
+        return WorkArenaScorer(judge_backend, judge_model)
+    elif benchmark == "coding_assistant":
+        from openjarvis.evals.scorers.coding_assistant import CodingAssistantScorer
+        return CodingAssistantScorer(judge_backend, judge_model)
+    elif benchmark == "security_scanner":
+        from openjarvis.evals.scorers.security_scanner import SecurityScannerScorer
+        return SecurityScannerScorer(judge_backend, judge_model)
+    elif benchmark == "daily_digest":
+        from openjarvis.evals.scorers.daily_digest import DailyDigestScorer
+        return DailyDigestScorer(judge_backend, judge_model)
+    elif benchmark == "doc_qa":
+        from openjarvis.evals.scorers.doc_qa import DocQAScorer
+        return DocQAScorer(judge_backend, judge_model)
+    elif benchmark == "browser_assistant":
+        from openjarvis.evals.scorers.browser_assistant import BrowserAssistantScorer
+        return BrowserAssistantScorer(judge_backend, judge_model)
     else:
         raise click.ClickException(f"Unknown benchmark: {benchmark}")
 
 
-def _build_judge_backend(judge_model: str):
-    """Build the judge backend (always cloud for LLM-as-judge)."""
+def _build_judge_backend(judge_model: str, engine_key: str = "cloud"):
+    """Build the judge backend for LLM-as-judge scoring.
+
+    Returns None if no engine is reachable — deterministic scorers
+    (e.g. LifelongAgentScorer, GAIAScorer) accept None and ignore it.
+    LLM-judge scorers will raise a clear error when they actually try
+    to use the backend rather than failing at startup.
+    """
     from openjarvis.evals.backends.jarvis_direct import JarvisDirectBackend
-    return JarvisDirectBackend(engine_key="cloud")
+    try:
+        return JarvisDirectBackend(engine_key=engine_key)
+    except RuntimeError as exc:
+        LOGGER.warning(
+            "Judge backend (%s) unavailable: %s — "
+            "deterministic scorers will still work; "
+            "LLM-judge scorers will fail when scoring.",
+            engine_key, exc,
+        )
+        return None
 
 
 def _print_summary(
@@ -263,9 +452,11 @@ def _run_single(config, console: Optional[Console] = None) -> object:
         config.tools,
         telemetry=getattr(config, "telemetry", False),
         gpu_metrics=getattr(config, "gpu_metrics", False),
+        model=config.model,
     )
     dataset = _build_dataset(config.benchmark)
-    judge_backend = _build_judge_backend(config.judge_model)
+    judge_engine = getattr(config, "judge_engine", "cloud") or "cloud"
+    judge_backend = _build_judge_backend(config.judge_model, engine_key=judge_engine)
     scorer = _build_scorer(config.benchmark, judge_backend, config.judge_model)
 
     trackers = _build_trackers(config)
@@ -294,10 +485,221 @@ def _run_single(config, console: Optional[Console] = None) -> object:
         return summary
     finally:
         eval_backend.close()
-        judge_backend.close()
+        if judge_backend is not None:
+            judge_backend.close()
 
 
-def _run_from_config(config_path: str, verbose: bool) -> None:
+def _run_agentic(
+    config,
+    console: Optional[Console] = None,
+    *,
+    concurrency: int = 1,
+    query_timeout: Optional[float] = None,
+) -> None:
+    """Run an agentic evaluation using AgenticRunner with trace + energy capture."""
+    import asyncio
+    from pathlib import Path as _Path
+
+    from openjarvis.evals.core.agentic_runner import AgenticRunner
+    from openjarvis.evals.core.event_recorder import EventRecorder
+    from openjarvis.evals.core.export import (
+        export_artifacts_manifest,
+        export_jsonl,
+        export_summary_json,
+    )
+
+    if console is None:
+        console = Console()
+
+    # Build dataset
+    dataset = _build_dataset(config.benchmark, getattr(config, "dataset_subset", None))
+    dataset.load(
+        max_samples=config.max_samples,
+        split=config.dataset_split,
+        seed=config.seed,
+    )
+
+    # Build agent via SystemBuilder
+    from openjarvis.system import SystemBuilder
+
+    builder = SystemBuilder()
+    if config.engine_key:
+        builder.engine(config.engine_key)
+    builder.model(config.model)
+    agent_name = config.agent_name or "orchestrator"
+    builder.agent(agent_name)
+    tool_list = config.tools or []
+    if tool_list:
+        builder.tools(tool_list)
+    system = builder.telemetry(config.telemetry).traces(config.telemetry).build()
+
+    # Build TelemetrySession (optional — only if energy monitoring available)
+    telemetry_session = None
+    try:
+        from openjarvis.telemetry.energy_monitor import create_energy_monitor
+        from openjarvis.telemetry.session import TelemetrySession
+
+        monitor = create_energy_monitor()
+        if monitor is not None:
+            telemetry_session = TelemetrySession(
+                monitor=monitor, interval_ms=100,
+            )
+    except ImportError:
+        pass
+
+    # Set up run directory
+    model_slug = config.model.replace("/", "-").replace(":", "-")
+    if config.output_path:
+        run_dir = _Path(config.output_path).parent
+    else:
+        run_dir = _Path("results")
+    run_dir = run_dir / f"agentic_{config.benchmark}_{model_slug}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build runner
+    event_recorder = EventRecorder()
+    runner = AgenticRunner(
+        agent=system,
+        dataset=dataset,
+        telemetry_session=telemetry_session,
+        config={
+            "model": config.model,
+            "benchmark": config.benchmark,
+            "agent": agent_name,
+            "tools": tool_list,
+            "temperature": config.temperature,
+            "max_tokens": config.max_tokens,
+        },
+        event_recorder=event_recorder,
+        run_dir=run_dir,
+        concurrency=concurrency,
+        query_timeout=query_timeout,
+    )
+
+    # Execute with telemetry session context
+    try:
+        ctx = telemetry_session if telemetry_session is not None else _nullctx()
+        with ctx:
+            with console.status("Running agentic evaluation..."):
+                traces = asyncio.run(runner.run(max_queries=config.max_samples))
+    finally:
+        system.close()
+        if telemetry_session is not None and hasattr(telemetry_session, "stop"):
+            try:
+                telemetry_session.stop()
+            except Exception:
+                pass
+
+    # Export results
+    jsonl_path = run_dir / "traces.jsonl"
+    export_jsonl(traces, jsonl_path)
+    console.print(f"  [green]Traces:[/green]    {jsonl_path}")
+
+    summary_path = run_dir / "summary.json"
+    export_summary_json(
+        traces,
+        config={
+            "model": config.model,
+            "benchmark": config.benchmark,
+            "agent": agent_name,
+            "concurrency": concurrency,
+            "query_timeout": query_timeout,
+        },
+        path=summary_path,
+    )
+    console.print(f"  [green]Summary:[/green]   {summary_path}")
+
+    manifest = export_artifacts_manifest(run_dir)
+    if manifest:
+        console.print(f"  [green]Manifest:[/green]  {manifest}")
+
+    # Try HF dataset export (optional)
+    try:
+        from openjarvis.evals.core.export import export_hf_dataset
+        hf_path = run_dir / "hf_dataset"
+        export_hf_dataset(traces, hf_path)
+        console.print(f"  [green]HF Arrow:[/green]  {hf_path}")
+    except ImportError:
+        pass
+
+    # Print summary table
+    print_section(console, "Agentic Results")
+    _print_agentic_summary(console, traces, config)
+
+
+def _nullctx():
+    """Return a no-op context manager."""
+    from contextlib import nullcontext
+    return nullcontext()
+
+
+def _print_agentic_summary(console: Console, traces, config) -> None:
+    """Print a rich summary of agentic run results."""
+    from rich.table import Table
+
+    completed = sum(1 for t in traces if t.completed)
+    resolved = sum(1 for t in traces if t.is_resolved is True)
+    timed_out = sum(1 for t in traces if t.timed_out)
+    total_turns = sum(t.num_turns for t in traces)
+    total_tool_calls = sum(t.total_tool_calls for t in traces)
+    total_in_tok = sum(t.total_input_tokens for t in traces)
+    total_out_tok = sum(t.total_output_tokens for t in traces)
+    total_wall = sum(t.total_wall_clock_s for t in traces)
+
+    gpu_energies = [
+        t.total_gpu_energy_joules for t in traces
+        if t.total_gpu_energy_joules is not None
+    ]
+    total_gpu_energy = sum(gpu_energies) if gpu_energies else None
+
+    costs = [t.total_cost_usd for t in traces if t.total_cost_usd is not None]
+    total_cost = sum(costs) if costs else None
+
+    table = Table(
+        title=f"[bold]{config.benchmark} / {config.model}[/bold]",
+        border_style="bright_blue",
+    )
+    table.add_column("Metric", style="cyan", no_wrap=True)
+    table.add_column("Value", style="white")
+
+    table.add_row("Queries", str(len(traces)))
+    table.add_row("Completed", f"{completed}/{len(traces)}")
+    if any(t.is_resolved is not None for t in traces):
+        table.add_row("Resolved", f"{resolved}/{len(traces)}")
+    table.add_row("Timed out", str(timed_out))
+    table.add_row("Total turns", str(total_turns))
+    avg_t = f"{total_turns / len(traces):.1f}" if traces else "0"
+    table.add_row("Avg turns/query", avg_t)
+    table.add_row("Total tool calls", str(total_tool_calls))
+    table.add_row("Input tokens", f"{total_in_tok:,}")
+    table.add_row("Output tokens", f"{total_out_tok:,}")
+    table.add_row("Wall clock", f"{total_wall:.1f}s")
+    table.add_row(
+        "Avg query time",
+        f"{total_wall/len(traces):.1f}s" if traces else "0s",
+    )
+
+    if total_gpu_energy is not None:
+        table.add_row("GPU energy", f"{total_gpu_energy:.2f} J")
+    if total_cost is not None:
+        table.add_row("Total cost", f"${total_cost:.4f}")
+
+    # Throughput
+    if total_out_tok > 0 and total_wall > 0:
+        table.add_row(
+            "Throughput",
+            f"{total_out_tok/total_wall:.1f} tok/s",
+        )
+
+    console.print(table)
+
+
+def _run_from_config(
+    config_path: str,
+    verbose: bool,
+    *,
+    model_filter: str | None = None,
+) -> None:
     """Load a TOML config and run the full models x benchmarks matrix."""
     from openjarvis.evals.core.config import expand_suite, load_eval_config
 
@@ -305,6 +707,14 @@ def _run_from_config(config_path: str, verbose: bool) -> None:
 
     suite = load_eval_config(config_path)
     run_configs = expand_suite(suite)
+
+    # Filter by model name substring if requested
+    if model_filter:
+        run_configs = [rc for rc in run_configs if model_filter in rc.model]
+        if not run_configs:
+            raise click.ClickException(
+                f"No models match filter '{model_filter}'"
+            )
 
     suite_name = suite.meta.name or Path(config_path).stem
 
@@ -414,6 +824,20 @@ def main():
 @click.option("--sheets-creds", "sheets_credentials_path",
               default="",
               help="Service account JSON path")
+@click.option("--model-filter", default=None,
+              help="Filter models by name substring (for multi-model configs)")
+@click.option("--judge-engine", default="cloud",
+              help="Engine key for LLM judge (default: cloud). "
+              "Use 'vllm' to judge locally.")
+@click.option("--agentic", is_flag=True, default=False,
+              help="Use AgenticRunner for multi-turn agent execution")
+@click.option("--episode-mode", is_flag=True, default=False,
+              help="Sequential episode processing with lifelong learning "
+                   "(required for lifelong-agent and similar benchmarks)")
+@click.option("--concurrency", type=int, default=1,
+              help="Parallel query execution (AgenticRunner only)")
+@click.option("--query-timeout", type=float, default=None,
+              help="Per-query wall-clock timeout in seconds (AgenticRunner only)")
 @click.option("-v", "--verbose", is_flag=True, help="Verbose logging")
 @click.pass_context
 def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
@@ -422,7 +846,8 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         compact, trace_detail,
         wandb_project, wandb_entity, wandb_tags, wandb_group,
         sheets_spreadsheet_id, sheets_worksheet, sheets_credentials_path,
-        verbose):
+        model_filter, judge_engine, agentic, episode_mode,
+        concurrency, query_timeout, verbose):
     """Run a single benchmark evaluation, or a full suite from a TOML config."""
     _setup_logging(verbose)
 
@@ -430,7 +855,7 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
 
     # Config-driven mode
     if config_path is not None:
-        _run_from_config(config_path, verbose)
+        _run_from_config(config_path, verbose, model_filter=model_filter)
         return
 
     # CLI-driven mode: validate required args
@@ -449,6 +874,17 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
 
     tool_list = [t.strip() for t in tools.split(",") if t.strip()] if tools else []
 
+    # --episode-mode takes precedence over --agentic.
+    # Note: EvalRunner also auto-detects episode_mode from the dataset
+    # (via iter_episodes), so passing --episode-mode here is optional for
+    # benchmarks like lifelong-agent that always require it.
+    if episode_mode and agentic:
+        LOGGER.warning(
+            "--episode-mode and --agentic both set; using --episode-mode "
+            "(provides proper multi-turn interaction via EvalRunner)"
+        )
+        agentic = False
+
     config = RunConfig(
         benchmark=benchmark,
         backend=backend,
@@ -458,6 +894,7 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         temperature=temperature,
         max_tokens=max_tokens,
         judge_model=judge_model,
+        judge_engine=judge_engine,
         engine_key=engine_key,
         agent_name=agent_name,
         tools=tool_list,
@@ -473,6 +910,7 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         sheets_spreadsheet_id=sheets_spreadsheet_id,
         sheets_worksheet=sheets_worksheet,
         sheets_credentials_path=sheets_credentials_path,
+        episode_mode=episode_mode,
     )
 
     # Banner + config
@@ -486,6 +924,28 @@ def run(ctx, config_path, benchmark, backend, model, engine_key, agent_name,
         samples=max_samples,
         workers=max_workers,
     )
+    if episode_mode:
+        console.print(
+            "  [cyan]Mode:[/cyan]       episode "
+            "(sequential + lifelong learning)"
+        )
+
+    if agentic:
+        # --- Agentic runner path ---
+        print_section(console, "Agentic Evaluation")
+        console.print(
+            f"  [cyan]Concurrency:[/cyan] {concurrency}"
+        )
+        if query_timeout:
+            console.print(
+                f"  [cyan]Timeout:[/cyan]     {query_timeout}s per query"
+            )
+        _run_agentic(
+            config, console=console,
+            concurrency=concurrency,
+            query_timeout=query_timeout,
+        )
+        return
 
     # Evaluation
     print_section(console, "Evaluation")
@@ -594,7 +1054,8 @@ def run_all(model, engine_key, max_samples, max_workers, judge_model,
             console.print(f"  [red bold]FAILED:[/red bold] {exc}")
         finally:
             eval_backend.close()
-            judge_backend.close()
+            if judge_backend is not None:
+                judge_backend.close()
 
     # Print overall summary
     if summaries:

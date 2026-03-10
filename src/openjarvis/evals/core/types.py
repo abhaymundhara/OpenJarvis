@@ -61,6 +61,7 @@ class RunConfig:
     temperature: float = 0.0
     max_tokens: int = 2048
     judge_model: str = "gpt-5-mini-2025-08-07"
+    judge_engine: str = "cloud"
     engine_key: Optional[str] = None
     agent_name: Optional[str] = None
     tools: List[str] = field(default_factory=list)
@@ -78,6 +79,9 @@ class RunConfig:
     sheets_spreadsheet_id: str = ""
     sheets_worksheet: str = "Results"
     sheets_credentials_path: str = ""
+    system_prompt: str = ""
+    episode_mode: bool = False
+    dataset_subset: Optional[str] = None
 
 
 @dataclass(slots=True)
@@ -136,6 +140,9 @@ class RunSummary:
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     trace_step_type_stats: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    efficiency: Optional[Dict[str, Any]] = None
+    normalized_statistics: Optional[Dict[str, Any]] = None
+    normalized_efficiency: Optional[Dict[str, Any]] = None
     # Internal fields set by the runner after construction
     _output_path: Optional[Path] = None
     _traces_dir: Optional[Path] = None
@@ -221,6 +228,7 @@ class BenchmarkConfig:
     judge_model: Optional[str] = None
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
+    subset: Optional[str] = None
 
 
 @dataclass(slots=True)

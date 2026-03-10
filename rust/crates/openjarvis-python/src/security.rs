@@ -1,7 +1,6 @@
 //! PyO3 bindings for security types.
 
 use pyo3::prelude::*;
-use std::sync::Arc;
 
 #[pyclass(name = "SecretScanner")]
 pub struct PySecretScanner {
@@ -208,6 +207,7 @@ impl PyRateLimiter {
         self.inner.check(key)
     }
 
+    #[pyo3(signature = (key=None))]
     fn reset(&self, key: Option<&str>) {
         self.inner.reset(key);
     }

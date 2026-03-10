@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Multi-turn agent with function calling and loop detection.
+#[allow(dead_code)]
 pub struct OrchestratorAgent<M: CompletionModel> {
     agent: rig::agent::Agent<M>,
     executor: Arc<ToolExecutor>,
@@ -72,7 +73,7 @@ impl<M: CompletionModel + 'static> OjAgent for OrchestratorAgent<M> {
             })
             .unwrap_or_default();
 
-        let mut all_tool_results = Vec::new();
+        let all_tool_results: Vec<ToolResult> = Vec::new();
         let _guard = LoopGuard::default();
 
         // Use rig agent for generation. Multi-turn tool dispatch requires

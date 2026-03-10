@@ -4,7 +4,7 @@
 //! All config structs use `#[serde(default)]` for backward compatibility.
 
 use crate::error::ConfigError;
-use crate::hardware::{detect_hardware, recommend_engine, GpuInfo, HardwareInfo};
+use crate::hardware::{detect_hardware, recommend_engine, HardwareInfo};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -134,6 +134,75 @@ impl Default for LMStudioEngineConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExoEngineConfig {
+    #[serde(default = "default_exo_host")]
+    pub host: String,
+}
+
+fn default_exo_host() -> String {
+    "http://localhost:52415".into()
+}
+
+impl Default for ExoEngineConfig {
+    fn default() -> Self {
+        Self { host: default_exo_host() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NexaEngineConfig {
+    #[serde(default = "default_nexa_host")]
+    pub host: String,
+    #[serde(default)]
+    pub device: String,
+}
+
+fn default_nexa_host() -> String {
+    "http://localhost:18181".into()
+}
+
+impl Default for NexaEngineConfig {
+    fn default() -> Self {
+        Self {
+            host: default_nexa_host(),
+            device: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UzuEngineConfig {
+    #[serde(default = "default_uzu_host")]
+    pub host: String,
+}
+
+fn default_uzu_host() -> String {
+    "http://localhost:8080".into()
+}
+
+impl Default for UzuEngineConfig {
+    fn default() -> Self {
+        Self { host: default_uzu_host() }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppleFmEngineConfig {
+    #[serde(default = "default_apple_fm_host")]
+    pub host: String,
+}
+
+fn default_apple_fm_host() -> String {
+    "http://localhost:8079".into()
+}
+
+impl Default for AppleFmEngineConfig {
+    fn default() -> Self {
+        Self { host: default_apple_fm_host() }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Engine config
 // ---------------------------------------------------------------------------
@@ -154,6 +223,14 @@ pub struct EngineConfig {
     pub mlx: MLXEngineConfig,
     #[serde(default)]
     pub lmstudio: LMStudioEngineConfig,
+    #[serde(default)]
+    pub exo: ExoEngineConfig,
+    #[serde(default)]
+    pub nexa: NexaEngineConfig,
+    #[serde(default)]
+    pub uzu: UzuEngineConfig,
+    #[serde(default)]
+    pub apple_fm: AppleFmEngineConfig,
 }
 
 fn default_engine_name() -> String {
@@ -170,6 +247,10 @@ impl Default for EngineConfig {
             llamacpp: LlamaCppEngineConfig::default(),
             mlx: MLXEngineConfig::default(),
             lmstudio: LMStudioEngineConfig::default(),
+            exo: ExoEngineConfig::default(),
+            nexa: NexaEngineConfig::default(),
+            uzu: UzuEngineConfig::default(),
+            apple_fm: AppleFmEngineConfig::default(),
         }
     }
 }

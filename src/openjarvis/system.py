@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -11,10 +12,12 @@ from openjarvis.core.types import Message, Role
 from openjarvis.engine._stubs import InferenceEngine
 from openjarvis.tools._stubs import BaseTool, ToolExecutor
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class JarvisSystem:
-    """Fully wired system -- the single source of truth for pillar composition."""
+    """Fully wired system -- the single source of truth for primitive composition."""
 
     config: JarvisConfig
     bus: EventBus
@@ -79,8 +82,8 @@ class JarvisSystem:
                 messages = inject_context(
                     query, messages, self.memory_backend, config=ctx_cfg,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to inject memory context: %s", exc)
 
         # Agent mode
         use_agent = agent or self.agent_name
@@ -256,8 +259,8 @@ class JarvisSystem:
                     tools.append(LLMTool(self.engine, model=self.model))
                 elif ToolRegistry.contains(name):
                     tools.append(ToolRegistry.create(name))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to build tool %r: %s", name, exc)
         return tools
 
     def close(self) -> None:
@@ -471,8 +474,8 @@ class SystemBuilder:
             try:
                 from openjarvis.speech._discovery import get_speech_backend
                 speech_backend = get_speech_backend(config)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to initialize speech backend: %s", exc)
 
         system = JarvisSystem(
             config=config,
@@ -524,8 +527,8 @@ class SystemBuilder:
             models = engine.list_models()
             if models:
                 return models[0]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to list models from engine: %s", exc)
 
         return config.intelligence.fallback_model or ""
 
@@ -555,8 +558,8 @@ class SystemBuilder:
                         scan_input=config.security.scan_input,
                         scan_output=config.security.scan_output,
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to set up security guardrails: %s", exc)
         return engine
 
     def _setup_telemetry(self, config, bus):
@@ -567,7 +570,8 @@ class SystemBuilder:
             store = TelemetryStore(db_path=config.telemetry.db_path)
             store.subscribe_to_bus(bus)
             return store
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up telemetry store: %s", exc)
             return None
 
     def _resolve_memory(self, config):
@@ -579,8 +583,8 @@ class SystemBuilder:
             key = config.memory.default_backend
             if MemoryRegistry.contains(key):
                 return MemoryRegistry.create(key, db_path=config.memory.db_path)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to resolve memory backend: %s", exc)
         return None
 
     def _resolve_channel(self, config, bus):
@@ -704,7 +708,8 @@ class SystemBuilder:
                 kwargs["assistant_has_own_number"] = wbc.assistant_has_own_number
 
             return ChannelRegistry.create(key, **kwargs)
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to resolve channel backend %r: %s", key, exc)
             return None
 
     def _resolve_tools(self, config, engine, model, memory_backend,
@@ -750,10 +755,12 @@ class SystemBuilder:
                                     if t.spec.name in tool_names
                                 ]
                             tools.extend(external_tools)
-                        except Exception:
-                            pass
-            except (json.JSONDecodeError, TypeError):
-                pass
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to discover external MCP tools: %s", exc,
+                            )
+            except (json.JSONDecodeError, TypeError) as exc:
+                logger.warning("Failed to parse MCP server config: %s", exc)
 
         return tools
 
@@ -800,7 +807,8 @@ class SystemBuilder:
                 max_concurrent=config.sandbox.max_concurrent,
                 runtime=config.sandbox.runtime,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up container sandbox: %s", exc)
             return None
 
     def _setup_scheduler(self, config, bus):
@@ -832,7 +840,8 @@ class SystemBuilder:
                 bus=bus,
             )
             return store, sched
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up task scheduler: %s", exc)
             return None, None
 
     def _setup_workflow(self, config, bus):
@@ -851,7 +860,8 @@ class SystemBuilder:
                 max_parallel=config.workflow.max_parallel,
                 default_node_timeout=config.workflow.default_node_timeout,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up workflow engine: %s", exc)
             return None
 
     def _setup_sessions(self, config):
@@ -870,7 +880,8 @@ class SystemBuilder:
                 max_age_hours=config.sessions.max_age_hours,
                 consolidation_threshold=config.sessions.consolidation_threshold,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up session store: %s", exc)
             return None
 
     @staticmethod
@@ -884,7 +895,8 @@ class SystemBuilder:
             return CapabilityPolicy(
                 policy_path=config.security.capabilities.policy_path or None,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up capability policy: %s", exc)
             return None
 
     @staticmethod
@@ -915,7 +927,8 @@ class SystemBuilder:
                 min_sft_pairs=config.learning.min_sft_pairs,
                 lora_config=lora_config,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to set up learning orchestrator: %s", exc)
             return None
 
     @staticmethod

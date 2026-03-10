@@ -1,6 +1,6 @@
 //! Audit logger — persist security events to SQLite with Merkle hash chain.
 
-use crate::types::{ScanFinding, SecurityEvent, SecurityEventType, ThreatLevel};
+use crate::types::{ScanFinding, SecurityEvent, SecurityEventType};
 use openjarvis_core::OpenJarvisError;
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
@@ -15,13 +15,12 @@ impl AuditLogger {
     pub fn new(db_path: &Path) -> Result<Self, OpenJarvisError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                OpenJarvisError::Io(std::io::Error::other(e))
             })?;
         }
 
         let conn = Connection::open(db_path).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -39,8 +38,7 @@ impl AuditLogger {
             )",
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -83,8 +81,7 @@ impl AuditLogger {
                 ],
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -113,8 +110,7 @@ impl AuditLogger {
                  FROM security_events ORDER BY id",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -133,8 +129,7 @@ impl AuditLogger {
                 ))
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -144,8 +139,7 @@ impl AuditLogger {
         for row_result in rows {
             let (rid, ts, etype, fj, preview, action, stored_hash, stored_prev) =
                 row_result.map_err(|e| {
-                    OpenJarvisError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    OpenJarvisError::Io(std::io::Error::other(
                         e.to_string(),
                     ))
                 })?;
@@ -212,8 +206,7 @@ impl AuditLogger {
             params.iter().map(|p| p.as_ref()).collect();
 
         let mut stmt = self.conn.prepare(&sql).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -229,8 +222,7 @@ impl AuditLogger {
                 ))
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -239,8 +231,7 @@ impl AuditLogger {
         for row_result in rows {
             let (ts, _etype, findings_json, preview, action) =
                 row_result.map_err(|e| {
-                    OpenJarvisError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    OpenJarvisError::Io(std::io::Error::other(
                         e.to_string(),
                     ))
                 })?;
@@ -272,6 +263,7 @@ fn hex_sha256(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ThreatLevel;
 
     #[test]
     fn test_audit_log_and_verify() {

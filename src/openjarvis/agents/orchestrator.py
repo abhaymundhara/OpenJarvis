@@ -12,6 +12,7 @@ Supports two modes:
 
 from __future__ import annotations
 
+import concurrent.futures
 import re
 from typing import Any, List, Optional
 
@@ -53,6 +54,7 @@ class OrchestratorAgent(ToolUsingAgent):
         max_tokens: int = 1024,
         mode: str = "function_calling",
         system_prompt: Optional[str] = None,
+        parallel_tools: bool = True,
     ) -> None:
         super().__init__(
             engine, model, tools=tools, bus=bus,
@@ -61,6 +63,7 @@ class OrchestratorAgent(ToolUsingAgent):
         )
         self._mode = mode
         self._system_prompt = system_prompt
+        self._parallel_tools = parallel_tools
 
     def run(
         self,
@@ -272,37 +275,76 @@ class OrchestratorAgent(ToolUsingAgent):
             ))
 
             # Execute each tool (with loop guard check) and append results
-            for tc in tool_calls:
-                # Loop guard check before execution
-                if self._loop_guard:
-                    verdict = self._loop_guard.check_call(
-                        tc.name, tc.arguments,
-                    )
-                    if verdict.blocked:
-                        tool_result = ToolResult(
-                            tool_name=tc.name,
-                            content=f"Loop guard: {verdict.reason}",
-                            success=False,
+            if self._parallel_tools and len(tool_calls) > 1:
+                # Parallel execution
+                def _exec_tool(tc: ToolCall) -> tuple:
+                    if self._loop_guard:
+                        verdict = self._loop_guard.check_call(
+                            tc.name, tc.arguments,
                         )
-                        all_tool_results.append(tool_result)
-                        messages.append(Message(
-                            role=Role.TOOL,
-                            content=tool_result.content,
-                            tool_call_id=tc.id,
-                            name=tc.name,
-                        ))
-                        continue
+                        if verdict.blocked:
+                            return tc, ToolResult(
+                                tool_name=tc.name,
+                                content=f"Loop guard: {verdict.reason}",
+                                success=False,
+                            )
+                    return tc, self._executor.execute(tc)
 
-                tool_result = self._executor.execute(tc)
-                all_tool_results.append(tool_result)
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=len(tool_calls),
+                ) as pool:
+                    futures = {
+                        pool.submit(_exec_tool, tc): tc
+                        for tc in tool_calls
+                    }
+                    results_map: dict[int, tuple] = {}
+                    for future in concurrent.futures.as_completed(futures):
+                        tc_orig = futures[future]
+                        results_map[id(tc_orig)] = future.result()
 
-                # Append tool response message
-                messages.append(Message(
-                    role=Role.TOOL,
-                    content=tool_result.content,
-                    tool_call_id=tc.id,
-                    name=tc.name,
-                ))
+                # Append results in original order
+                for tc in tool_calls:
+                    _, tool_result = results_map[id(tc)]
+                    all_tool_results.append(tool_result)
+                    messages.append(Message(
+                        role=Role.TOOL,
+                        content=tool_result.content,
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                    ))
+            else:
+                # Sequential execution
+                for tc in tool_calls:
+                    # Loop guard check before execution
+                    if self._loop_guard:
+                        verdict = self._loop_guard.check_call(
+                            tc.name, tc.arguments,
+                        )
+                        if verdict.blocked:
+                            tool_result = ToolResult(
+                                tool_name=tc.name,
+                                content=f"Loop guard: {verdict.reason}",
+                                success=False,
+                            )
+                            all_tool_results.append(tool_result)
+                            messages.append(Message(
+                                role=Role.TOOL,
+                                content=tool_result.content,
+                                tool_call_id=tc.id,
+                                name=tc.name,
+                            ))
+                            continue
+
+                    tool_result = self._executor.execute(tc)
+                    all_tool_results.append(tool_result)
+
+                    # Append tool response message
+                    messages.append(Message(
+                        role=Role.TOOL,
+                        content=tool_result.content,
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                    ))
 
         # Max turns exceeded
         final_content = self._strip_think_tags(content) if content else ""

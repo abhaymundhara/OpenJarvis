@@ -154,7 +154,7 @@ def _check_models() -> List[CheckResult]:
                             f"Models: {key}",
                             "warn",
                             "No models available",
-                            details="Pull a model (e.g. `ollama pull qwen3:8b`).",
+                            details="Pull a model (e.g. `ollama pull qwen3.5:3b`).",
                         )
                     )
         except Exception:

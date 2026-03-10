@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from openjarvis.a2a.client import A2AClient
 from openjarvis.core.types import ToolResult
 from openjarvis.tools._stubs import BaseTool, ToolSpec
+
+logger = logging.getLogger(__name__)
 
 
 class A2AAgentTool(BaseTool):
@@ -28,7 +31,8 @@ class A2AAgentTool(BaseTool):
                 self._name = f"a2a_{card.name.lower().replace(' ', '_')}"
                 self.tool_id = self._name
             self._description = card.description or f"External A2A agent: {card.name}"
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to fetch A2A agent description: %s", exc)
             self._description = "External A2A agent"
 
     @property

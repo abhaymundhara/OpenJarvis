@@ -1,7 +1,7 @@
-"""Thread-safe pub/sub event bus for inter-pillar telemetry.
+"""Thread-safe pub/sub event bus for inter-primitive telemetry.
 
 Extends IPW's ``EventRecorder`` into a full publish/subscribe system so that
-any pillar can emit events (e.g. ``INFERENCE_END``) and any other pillar can
+any primitive can emit events (e.g. ``INFERENCE_END``) and any other primitive can
 react without direct coupling.
 """
 
@@ -115,7 +115,7 @@ class EventBus:
             try:
                 listeners.remove(callback)
             except ValueError:
-                pass
+                pass  # Callback already removed — idempotent
 
     # -- publish ------------------------------------------------------------
 

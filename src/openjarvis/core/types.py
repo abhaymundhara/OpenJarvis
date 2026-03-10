@@ -1,4 +1,4 @@
-"""Canonical data types shared across all OpenJarvis pillars."""
+"""Canonical data types shared across all OpenJarvis primitives."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ class Quantization(str, Enum):
     FP4 = "fp4"
     INT8 = "int8"
     INT4 = "int4"
+    GGUF = "gguf"
     GGUF_Q4 = "gguf_q4"
     GGUF_Q8 = "gguf_q8"
 

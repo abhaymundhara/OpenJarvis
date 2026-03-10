@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Dict, List
 
 from openjarvis.core.registry import EngineRegistry
 from openjarvis.core.types import Message
 from openjarvis.engine._base import InferenceEngine, messages_to_dicts
+
+logger = logging.getLogger(__name__)
 
 
 @EngineRegistry.register("litellm")
@@ -91,7 +94,8 @@ class LiteLLMEngine(InferenceEngine):
         try:
             cost = litellm.completion_cost(completion_response=resp)
             result["cost_usd"] = cost
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to compute cost for LiteLLM call: %s", exc)
             result["cost_usd"] = 0.0
 
         return result

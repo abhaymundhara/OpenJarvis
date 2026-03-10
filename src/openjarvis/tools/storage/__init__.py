@@ -1,4 +1,4 @@
-"""Storage pillar — persistent searchable storage."""
+"""Storage primitive — persistent searchable storage."""
 
 from __future__ import annotations
 

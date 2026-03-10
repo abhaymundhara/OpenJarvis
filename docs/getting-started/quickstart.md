@@ -5,6 +5,46 @@ description: Get up and running with OpenJarvis in minutes
 
 # Quick Start
 
+## What You Can Build
+
+OpenJarvis is a modular AI assistant framework. Here's what developers build with it:
+
+=== "Chat with Any Model"
+
+    ```bash
+    jarvis ask "Explain quantum entanglement" -m qwen3:8b
+    ```
+
+=== "Agent + Tools"
+
+    ```bash
+    jarvis ask --agent orchestrator --tools calculator,web_search "What is the GDP of France in USD?"
+    ```
+
+=== "Index Docs & Ask"
+
+    ```bash
+    jarvis memory index ./docs/
+    jarvis ask "How do I configure the engine?"
+    ```
+
+=== "5-Line Python SDK"
+
+    ```python
+    from openjarvis import Jarvis
+    with Jarvis() as j:
+        print(j.ask("Hello!"))
+    ```
+
+=== "API Server"
+
+    ```bash
+    jarvis serve --port 8000
+    # Now use any OpenAI-compatible client
+    ```
+
+For complete copy-paste patterns, see [Code Snippets](snippets.md).
+
 This guide walks through the core workflows of OpenJarvis: the browser app, CLI, Python SDK, agents with tools, memory, benchmarks, and the API server.
 
 !!! info "Prerequisites"
@@ -15,7 +55,7 @@ This guide walks through the core workflows of OpenJarvis: the browser app, CLI,
 The quickest way to experience OpenJarvis is the full chat UI running in your browser:
 
 ```bash
-git clone https://github.com/HazyResearch/OpenJarvis.git
+git clone https://github.com/open-jarvis/OpenJarvis.git
 cd OpenJarvis
 ./scripts/quickstart.sh
 ```
@@ -136,7 +176,7 @@ Agents add multi-turn reasoning and tool-calling capabilities. The `orchestrator
 | `simple` | Single-turn, no tools. Sends the query directly to the model. |
 | `orchestrator` | Multi-turn tool-calling loop. Invokes tools iteratively until it has an answer. |
 | `custom` | Template for user-defined agent logic. |
-| `openclaw` | HTTP/subprocess transport to external OpenClaw agent processes. |
+| `operative` | Task-oriented agent with structured planning and execution. |
 
 ### Available Built-in Tools
 
@@ -459,4 +499,4 @@ j.close()
 - [Configuration](configuration.md) — Fine-tune engine hosts, model routing, memory settings, and more
 - [CLI Reference](../user-guide/cli.md) — Full reference for all CLI commands and options
 - [Python SDK](../user-guide/python-sdk.md) — Detailed SDK documentation
-- [Architecture Overview](../architecture/overview.md) — Understand the four-pillar design
+- [Architecture Overview](../architecture/overview.md) — Understand the five-primitive design

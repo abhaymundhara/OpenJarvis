@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -9,6 +10,8 @@ from openjarvis.bench._stubs import BaseBenchmark, BenchmarkResult
 from openjarvis.core.registry import BenchmarkRegistry
 from openjarvis.core.types import Message, Role
 from openjarvis.engine._stubs import InferenceEngine
+
+logger = logging.getLogger(__name__)
 
 
 class ThroughputBenchmark(BaseBenchmark):
@@ -38,8 +41,8 @@ class ThroughputBenchmark(BaseBenchmark):
         for _ in range(warmup_samples):
             try:
                 engine.generate(messages, model=model)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Warmup request failed: %s", exc)
 
         total_tokens = 0
         total_time = 0.0
@@ -54,7 +57,8 @@ class ThroughputBenchmark(BaseBenchmark):
                 tokens = usage.get("completion_tokens", 0)
                 total_tokens += tokens
                 total_time += elapsed
-            except Exception:
+            except Exception as exc:
+                logger.debug("Measurement request failed: %s", exc)
                 errors += 1
 
         tps = total_tokens / total_time if total_time > 0 else 0.0

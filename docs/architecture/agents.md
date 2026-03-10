@@ -1,6 +1,6 @@
-# Agentic Logic Pillar
+# Agentic Logic Primitive
 
-The Agentic Logic pillar provides **pluggable agents** that handle queries with varying levels of sophistication -- from simple single-turn responses to multi-turn tool-calling loops, ReAct-style reasoning, CodeAct code execution, recursive decomposition, and external agent communication.
+The Agentic Logic primitive provides **pluggable agents** that handle queries with varying levels of sophistication -- from simple single-turn responses to multi-turn tool-calling loops, ReAct-style reasoning, CodeAct code execution, recursive decomposition, and external agent communication.
 
 ---
 
@@ -347,41 +347,6 @@ agent = OpenHandsAgent(
 result = agent.run("Fix the failing test in test_utils.py")
 ```
 
-### OpenClawAgent
-
-**Registry key:** `openclaw`
-
-Communicates with an external OpenClaw Pi agent server via HTTP or subprocess transport. This agent delegates query handling to a separate process or service.
-
-```mermaid
-graph LR
-    Q["User Query"] --> MSG["Build ProtocolMessage"]
-    MSG --> SEND["Transport.send()"]
-    SEND --> CHECK{"Response type?"}
-    CHECK -->|TOOL_CALL| EXEC["Execute tool locally"]
-    EXEC --> RESULT["Send tool result back"]
-    RESULT --> SEND
-    CHECK -->|RESPONSE| DONE["Return content"]
-    CHECK -->|ERROR| ERR["Return error"]
-```
-
-How it works:
-
-1. Checks transport health
-2. Sends a `QUERY` message through the transport
-3. If the response is a `TOOL_CALL`, executes the tool locally via `ToolRegistry` and sends the result back
-4. Continues the tool-call loop until a `RESPONSE` or `ERROR` is received
-
-```python
-from openjarvis.agents.openclaw import OpenClawAgent
-
-# HTTP mode (connects to OpenClaw server)
-agent = OpenClawAgent(engine, model="qwen3:8b", mode="http")
-
-# Subprocess mode (launches Node.js process)
-agent = OpenClawAgent(engine, model="qwen3:8b", mode="subprocess")
-```
-
 ### ClaudeCodeAgent
 
 **Registry key:** `claude_code`
@@ -532,70 +497,6 @@ For each tool call:
 4. Executes the tool with timing
 5. Publishes `TOOL_CALL_END` with success status and latency
 6. Returns the `ToolResult`
-
----
-
-## OpenClaw Infrastructure
-
-The OpenClaw infrastructure enables OpenJarvis agents to communicate with external OpenClaw servers through a structured protocol.
-
-### Protocol
-
-The `openclaw_protocol.py` module defines the wire protocol:
-
-**Message Types:**
-
-| Type | Direction | Purpose |
-|------|-----------|---------|
-| `QUERY` | Client -> Server | Send a user query |
-| `RESPONSE` | Server -> Client | Return a response |
-| `TOOL_CALL` | Server -> Client | Request tool execution |
-| `TOOL_RESULT` | Client -> Server | Return tool execution result |
-| `ERROR` | Server -> Client | Report an error |
-| `HEALTH` | Client -> Server | Health check request |
-| `HEALTH_OK` | Server -> Client | Health check response |
-
-**ProtocolMessage dataclass:**
-
-```python
-@dataclass(slots=True)
-class ProtocolMessage:
-    type: MessageType
-    id: str                            # UUID, auto-generated
-    content: str = ""
-    tool_name: Optional[str] = None
-    tool_args: Optional[Dict] = None
-    tool_result: Optional[str] = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-```
-
-Messages are serialized to JSON lines via `serialize()` and deserialized via `deserialize()`.
-
-### Transport
-
-The `openclaw_transport.py` module provides two transport implementations:
-
-**`HttpTransport`** -- Communicates via HTTP POST to an OpenClaw server:
-
-- Default endpoint: `http://localhost:18789`
-- Sends messages to `/api/query`
-- Health check via `GET /health`
-
-**`SubprocessTransport`** -- Launches a Node.js process and communicates via stdin/stdout:
-
-- Sends JSON lines to the process's stdin
-- Reads JSON line responses from stdout
-- Auto-starts the process if it is not running
-- Terminates the process on `close()`
-
-### Plugin System
-
-The `openclaw_plugin.py` module wraps OpenJarvis as an OpenClaw provider:
-
-- **`ProviderPlugin`** -- Wraps an OpenJarvis engine for OpenClaw's `generate()` and `list_models()` interface
-- **`MemorySearchManager`** -- Wraps a memory backend for OpenClaw's `search()`, `sync()`, and `status()` interface
-- **`register()`** -- Entry point that returns plugin capabilities for OpenClaw discovery
 
 ---
 

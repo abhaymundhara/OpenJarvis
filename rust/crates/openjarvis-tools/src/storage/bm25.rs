@@ -53,7 +53,7 @@ impl BM25Memory {
         let mut score = 0.0;
         let dl = doc.term_count as f64;
 
-        for (term, _) in query_terms {
+        for term in query_terms.keys() {
             let tf = *doc.terms.get(term).unwrap_or(&0) as f64;
             let doc_freq = *df.get(term).unwrap_or(&0) as f64;
             if doc_freq == 0.0 || tf == 0.0 {

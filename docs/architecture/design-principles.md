@@ -31,13 +31,13 @@ graph LR
     ABC -.->|"extend"| F
 ```
 
-This pattern applies across all four pillars:
+This pattern applies across all five primitives:
 
-| Pillar | ABC | Implementations |
+| Primitive | ABC | Implementations |
 |--------|-----|----------------|
 | Engine | `InferenceEngine` | Ollama, vLLM, SGLang, llama.cpp, Cloud |
 | Memory | `MemoryBackend` | SQLite, FAISS, ColBERT, BM25, Hybrid |
-| Agents | `BaseAgent` | Simple, Orchestrator, OpenClaw, Custom |
+| Agents | `BaseAgent` | Simple, Orchestrator, NativeReAct, Operative, MonitorOperative |
 | Learning | `RouterPolicy` | Heuristic, TraceDriven, GRPO |
 | Tools | `BaseTool` | Calculator, Think, Retrieval, LLM, FileRead |
 
@@ -294,6 +294,6 @@ Optional features that require additional packages:
 | Cloud inference | `openjarvis[inference-cloud]` | `openai`, `anthropic`, `google-genai` |
 | vLLM engine | `openjarvis[inference-vllm]` | `vllm` |
 | PDF ingestion | `openjarvis[memory-pdf]` | `pdfplumber` |
-| OpenClaw | `openjarvis[openclaw]` | Node.js 22+ |
+| WhatsApp Baileys | `openjarvis[channel-whatsapp-baileys]` | Node.js 22+ |
 
 This design ensures that a minimal installation (`pip install openjarvis`) gives you a fully functional system with SQLite memory, local inference, and the complete CLI -- no Docker, no external databases, no cloud accounts required.

@@ -17,13 +17,12 @@ impl SQLiteMemory {
     pub fn new(db_path: &Path) -> Result<Self, OpenJarvisError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                OpenJarvisError::Io(std::io::Error::other(e))
             })?;
         }
 
         let conn = Connection::open(db_path).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -41,8 +40,7 @@ impl SQLiteMemory {
             );",
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -80,8 +78,7 @@ impl MemoryBackend for SQLiteMemory {
             rusqlite::params![doc_id, content, source, meta_str],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -91,8 +88,7 @@ impl MemoryBackend for SQLiteMemory {
             rusqlite::params![doc_id, content, source],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -125,8 +121,7 @@ impl MemoryBackend for SQLiteMemory {
                  LIMIT ?2",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -145,8 +140,7 @@ impl MemoryBackend for SQLiteMemory {
                 })
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?
@@ -163,8 +157,7 @@ impl MemoryBackend for SQLiteMemory {
             rusqlite::params![doc_id],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -174,8 +167,7 @@ impl MemoryBackend for SQLiteMemory {
                 rusqlite::params![doc_id],
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -186,8 +178,7 @@ impl MemoryBackend for SQLiteMemory {
         let conn = self.conn.lock();
         conn.execute_batch("DELETE FROM documents_fts; DELETE FROM documents")
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -199,8 +190,7 @@ impl MemoryBackend for SQLiteMemory {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM documents", [], |row| row.get(0))
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;

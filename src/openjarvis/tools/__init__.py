@@ -1,4 +1,4 @@
-"""Tools pillar — tool system with ABC interface and built-in tools."""
+"""Tools primitive — tool system with ABC interface and built-in tools."""
 
 from __future__ import annotations
 
@@ -39,6 +39,11 @@ except ImportError:
 
 try:
     import openjarvis.tools.code_interpreter  # noqa: F401
+except ImportError:
+    pass
+
+try:
+    import openjarvis.tools.code_interpreter_docker  # noqa: F401
 except ImportError:
     pass
 

@@ -40,6 +40,14 @@ class TestNextStepsOllama:
         assert "jarvis ask" in text
         assert "jarvis doctor" in text
 
+    def test_next_steps_ollama_with_model(self) -> None:
+        text = _next_steps_text("ollama", "qwen3.5:14b")
+        assert "ollama pull qwen3.5:14b" in text
+
+    def test_next_steps_ollama_default_model(self) -> None:
+        text = _next_steps_text("ollama")
+        assert "ollama pull qwen3.5:3b" in text
+
 
 class TestNextStepsVllm:
     def test_next_steps_vllm(self) -> None:

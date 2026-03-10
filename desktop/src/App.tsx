@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UpdateChecker } from './components/UpdateChecker';
+import { SavingsDashboard } from './components/SavingsDashboard';
 import { EnergyDashboard } from './components/EnergyDashboard';
 import { TraceDebugger } from './components/TraceDebugger';
 import { LearningCurve } from './components/LearningCurve';
@@ -7,7 +8,7 @@ import { MemoryBrowser } from './components/MemoryBrowser';
 import { AdminPanel } from './components/AdminPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 
-type TabId = 'energy' | 'traces' | 'learning' | 'memory' | 'admin' | 'settings';
+type TabId = 'savings' | 'energy' | 'traces' | 'learning' | 'memory' | 'admin' | 'settings';
 
 interface Tab {
   id: TabId;
@@ -15,6 +16,7 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
+  { id: 'savings', label: 'Savings' },
   { id: 'energy', label: 'Energy' },
   { id: 'traces', label: 'Traces' },
   { id: 'learning', label: 'Learning' },
@@ -26,7 +28,7 @@ const TABS: Tab[] = [
 const API_URL = 'http://localhost:8000';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('energy');
+  const [activeTab, setActiveTab] = useState<TabId>('savings');
 
   return (
     <div style={styles.container}>
@@ -51,6 +53,7 @@ export function App() {
       <UpdateChecker />
 
       <main style={styles.main}>
+        {activeTab === 'savings' && <SavingsDashboard apiUrl={API_URL} />}
         {activeTab === 'energy' && <EnergyDashboard apiUrl={API_URL} />}
         {activeTab === 'traces' && <TraceDebugger apiUrl={API_URL} />}
         {activeTab === 'learning' && <LearningCurve apiUrl={API_URL} />}

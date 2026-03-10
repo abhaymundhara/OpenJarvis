@@ -209,6 +209,44 @@ def recommend_engine(hw: HardwareInfo) -> str:
     return "llamacpp"
 
 
+def recommend_model(hw: HardwareInfo, engine: str) -> str:
+    """Suggest the largest Qwen3.5 model that fits the detected hardware.
+
+    Uses llmfit-style VRAM estimation: Q4_K_M quantization is ~0.5 bytes/param
+    with 10% overhead.  For MoE models Ollama loads full model weights, so we
+    use ``parameter_count_b`` (total), not ``active_parameter_count_b``.
+    """
+    from openjarvis.intelligence.model_catalog import BUILTIN_MODELS
+
+    # Determine available memory in GB
+    gpu = hw.gpu
+    if gpu and gpu.vram_gb > 0:
+        available_gb = gpu.vram_gb * max(gpu.count, 1) * 0.9
+    elif hw.ram_gb > 0:
+        available_gb = (hw.ram_gb - 4) * 0.8
+    else:
+        return ""
+
+    # Filter Qwen3.5 models compatible with the chosen engine
+    candidates = [
+        spec
+        for spec in BUILTIN_MODELS
+        if spec.provider == "alibaba"
+        and spec.model_id.startswith("qwen3.5:")
+        and engine in spec.supported_engines
+    ]
+
+    # Sort by parameter count descending — pick the largest that fits
+    candidates.sort(key=lambda s: s.parameter_count_b, reverse=True)
+
+    for spec in candidates:
+        estimated_gb = spec.parameter_count_b * 0.5 * 1.1
+        if estimated_gb <= available_gb:
+            return spec.model_id
+
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Configuration hierarchy
 # ---------------------------------------------------------------------------
@@ -257,6 +295,35 @@ class LMStudioEngineConfig:
     host: str = "http://localhost:1234"
 
 
+@dataclass(slots=True)
+class ExoEngineConfig:
+    """Per-engine config for Exo."""
+
+    host: str = "http://localhost:52415"
+
+
+@dataclass(slots=True)
+class NexaEngineConfig:
+    """Per-engine config for Nexa."""
+
+    host: str = "http://localhost:18181"
+    device: str = ""
+
+
+@dataclass(slots=True)
+class UzuEngineConfig:
+    """Per-engine config for Uzu."""
+
+    host: str = "http://localhost:8080"
+
+
+@dataclass(slots=True)
+class AppleFmEngineConfig:
+    """Per-engine config for Apple Foundation Models."""
+
+    host: str = "http://localhost:8079"
+
+
 @dataclass
 class EngineConfig:
     """Inference engine settings with nested per-engine configs."""
@@ -268,6 +335,10 @@ class EngineConfig:
     llamacpp: LlamaCppEngineConfig = field(default_factory=LlamaCppEngineConfig)
     mlx: MLXEngineConfig = field(default_factory=MLXEngineConfig)
     lmstudio: LMStudioEngineConfig = field(default_factory=LMStudioEngineConfig)
+    exo: ExoEngineConfig = field(default_factory=ExoEngineConfig)
+    nexa: NexaEngineConfig = field(default_factory=NexaEngineConfig)
+    uzu: UzuEngineConfig = field(default_factory=UzuEngineConfig)
+    apple_fm: AppleFmEngineConfig = field(default_factory=AppleFmEngineConfig)
 
     # Backward-compat properties for old flat attribute names
     @property
@@ -333,6 +404,42 @@ class EngineConfig:
     def lmstudio_host(self, value: str) -> None:
         self.lmstudio.host = value
 
+    @property
+    def exo_host(self) -> str:
+        """Deprecated: use ``engine.exo.host``."""
+        return self.exo.host
+
+    @exo_host.setter
+    def exo_host(self, value: str) -> None:
+        self.exo.host = value
+
+    @property
+    def nexa_host(self) -> str:
+        """Deprecated: use ``engine.nexa.host``."""
+        return self.nexa.host
+
+    @nexa_host.setter
+    def nexa_host(self, value: str) -> None:
+        self.nexa.host = value
+
+    @property
+    def uzu_host(self) -> str:
+        """Deprecated: use ``engine.uzu.host``."""
+        return self.uzu.host
+
+    @uzu_host.setter
+    def uzu_host(self, value: str) -> None:
+        self.uzu.host = value
+
+    @property
+    def apple_fm_host(self) -> str:
+        """Deprecated: use ``engine.apple_fm.host``."""
+        return self.apple_fm.host
+
+    @apple_fm_host.setter
+    def apple_fm_host(self, value: str) -> None:
+        self.apple_fm.host = value
+
 
 @dataclass(slots=True)
 class IntelligenceConfig:
@@ -390,7 +497,7 @@ class MetricsConfig:
 
 @dataclass
 class LearningConfig:
-    """Learning system settings with per-pillar sub-policies."""
+    """Learning system settings with per-primitive sub-policies."""
 
     enabled: bool = False
     update_interval: int = 100  # traces between automatic policy updates
@@ -510,7 +617,7 @@ class BrowserConfig:
 
 @dataclass(slots=True)
 class ToolsConfig:
-    """Tools pillar settings — wraps storage and MCP configuration."""
+    """Tools primitive settings — wraps storage and MCP configuration."""
 
     storage: StorageConfig = field(default_factory=StorageConfig)
     mcp: MCPConfig = field(default_factory=MCPConfig)
@@ -951,13 +1058,19 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
     Parameters
     ----------
     path:
-        Explicit config file.  Falls back to ``~/.openjarvis/config.toml``.
+        Explicit config file. If not set, uses ``OPENJARVIS_CONFIG`` when set,
+        otherwise ``~/.openjarvis/config.toml``.
     """
     hw = detect_hardware()
     cfg = JarvisConfig(hardware=hw)
     cfg.engine.default = recommend_engine(hw)
 
-    config_path = path or DEFAULT_CONFIG_PATH
+    if path is not None:
+        config_path = Path(path)
+    elif os.environ.get("OPENJARVIS_CONFIG"):
+        config_path = Path(os.environ["OPENJARVIS_CONFIG"]).expanduser().resolve()
+    else:
+        config_path = DEFAULT_CONFIG_PATH
     if config_path.exists():
         with open(config_path, "rb") as fh:
             data = tomllib.load(fh)
@@ -995,9 +1108,14 @@ def load_config(path: Optional[Path] = None) -> JarvisConfig:
 def generate_default_toml(hw: HardwareInfo) -> str:
     """Render a commented TOML string suitable for ``~/.openjarvis/config.toml``."""
     engine = recommend_engine(hw)
+    model = recommend_model(hw, engine)
     gpu_line = ""
     if hw.gpu:
         gpu_line = f"# Detected GPU: {hw.gpu.name} ({hw.gpu.vram_gb} GB VRAM)"
+
+    model_comment = ""
+    if model:
+        model_comment = "  # recommended for your hardware"
 
     return f"""\
 # OpenJarvis configuration
@@ -1028,8 +1146,21 @@ host = "http://localhost:8080"
 # [engine.lmstudio]
 # host = "http://localhost:1234"
 
+# [engine.exo]
+# host = "http://localhost:52415"
+
+# [engine.nexa]
+# host = "http://localhost:18181"
+# device = ""  # cpu, gpu, npu
+
+# [engine.uzu]
+# host = "http://localhost:8080"
+
+# [engine.apple_fm]
+# host = "http://localhost:8079"
+
 [intelligence]
-default_model = ""
+default_model = "{model}"{model_comment}
 fallback_model = ""
 # model_path = ""              # Local weights (HF repo, GGUF file, etc.)
 # checkpoint_path = ""         # Checkpoint/adapter path
@@ -1242,4 +1373,5 @@ __all__ = [
     "generate_default_toml",
     "load_config",
     "recommend_engine",
+    "recommend_model",
 ]

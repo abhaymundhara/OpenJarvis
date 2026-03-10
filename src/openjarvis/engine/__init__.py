@@ -1,4 +1,4 @@
-"""Inference Engine pillar — LLM runtime management."""
+"""Inference Engine primitive — LLM runtime management."""
 
 from __future__ import annotations
 

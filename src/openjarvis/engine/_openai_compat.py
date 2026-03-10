@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Dict, List
 
@@ -15,6 +16,8 @@ from openjarvis.engine._base import (
     messages_to_dicts,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class _OpenAICompatibleEngine(InferenceEngine):
     """Base for engines that serve the OpenAI ``/v1/chat/completions`` API."""
@@ -22,7 +25,7 @@ class _OpenAICompatibleEngine(InferenceEngine):
     engine_id: str = ""
     _default_host: str = "http://localhost:8000"
 
-    def __init__(self, host: str | None = None, *, timeout: float = 120.0) -> None:
+    def __init__(self, host: str | None = None, *, timeout: float = 600.0) -> None:
         self._host = (host or self._default_host).rstrip("/")
         self._client = httpx.Client(base_url=self._host, timeout=timeout)
 
@@ -43,6 +46,7 @@ class _OpenAICompatibleEngine(InferenceEngine):
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": False,
+            "chat_template_kwargs": {"enable_thinking": False},
             **kwargs,
         }
         try:
@@ -134,7 +138,13 @@ class _OpenAICompatibleEngine(InferenceEngine):
         try:
             resp = self._client.get("/v1/models")
             resp.raise_for_status()
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError):
+        except (
+            httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError,
+        ) as exc:
+            logger.warning(
+                "Failed to list models from %s at %s: %s",
+                self.engine_id, self._host, exc,
+            )
             return []
         data = resp.json()
         return [m["id"] for m in data.get("data", [])]
@@ -143,7 +153,11 @@ class _OpenAICompatibleEngine(InferenceEngine):
         try:
             resp = self._client.get("/v1/models", timeout=2.0)
             return resp.status_code == 200
-        except Exception:
+        except Exception as exc:
+            logger.debug(
+                "%s health check failed at %s: %s",
+                self.engine_id, self._host, exc,
+            )
             return False
 
     def close(self) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as json_mod
+import logging
 import sys
 import time
 
@@ -26,6 +27,8 @@ from openjarvis.intelligence import (
 )
 from openjarvis.telemetry.instrumented_engine import InstrumentedEngine
 from openjarvis.telemetry.store import TelemetryStore
+
+logger = logging.getLogger(__name__)
 
 
 def _get_memory_backend(config):
@@ -52,7 +55,8 @@ def _get_memory_backend(config):
             return None
 
         return backend
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to initialize memory backend: %s", exc)
         return None
 
 
@@ -143,8 +147,8 @@ def _run_agent(
                 )
                 for msg in context_messages:
                     ctx.conversation.add(msg)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Failed to inject memory context for agent: %s", exc)
 
     return agent.run(query_text, context=ctx)
 
@@ -327,8 +331,8 @@ def ask(
         try:
             telem_store = TelemetryStore(config.telemetry.db_path)
             telem_store.subscribe_to_bus(bus)
-        except Exception:
-            pass  # telemetry is best-effort
+        except Exception as exc:
+            logger.debug("Failed to initialize telemetry store: %s", exc)
 
     # Discover engines
     register_builtin_models()
@@ -358,8 +362,8 @@ def ask(
             energy_monitor = create_energy_monitor(
                 prefer_vendor=config.telemetry.energy_vendor or None,
             )
-        except Exception:
-            pass  # energy monitoring is best-effort
+        except Exception as exc:
+            logger.debug("Failed to create energy monitor: %s", exc)
     engine = InstrumentedEngine(engine, bus, energy_monitor=energy_monitor)
 
     # Discover models and merge into registry
@@ -420,8 +424,8 @@ def ask(
         if telem_store is not None:
             try:
                 telem_store.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Error closing telemetry store: %s", exc)
         return
 
     # Direct-to-engine mode (no agent)
@@ -447,8 +451,8 @@ def ask(
                     query_text, messages, backend,
                     config=ctx_cfg,
                 )
-        except Exception:
-            pass  # context injection is best-effort
+        except Exception as exc:
+            logger.debug("Failed to inject memory context: %s", exc)
 
     # Generate (InstrumentedEngine handles telemetry + energy recording)
     try:
@@ -480,10 +484,10 @@ def ask(
     if energy_monitor is not None:
         try:
             energy_monitor.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error closing energy monitor: %s", exc)
     if telem_store is not None:
         try:
             telem_store.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Error closing telemetry store: %s", exc)

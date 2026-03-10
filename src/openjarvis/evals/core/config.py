@@ -39,6 +39,10 @@ KNOWN_BENCHMARKS = {
     "simpleqa", "wildchat", "ipw",
     "gaia", "frames", "swebench", "swefficiency",
     "terminalbench", "terminalbench-native",
+    "email_triage", "morning_brief", "research_mining",
+    "knowledge_base", "coding_task",
+    "coding_assistant", "security_scanner", "daily_digest",
+    "doc_qa", "browser_assistant",
 }
 
 
@@ -170,6 +174,7 @@ def load_eval_config(path: str | Path) -> EvalSuiteConfig:
             judge_model=b.get("judge_model"),
             temperature=float(b["temperature"]) if "temperature" in b else None,
             max_tokens=int(b["max_tokens"]) if "max_tokens" in b else None,
+            subset=b.get("subset"),
         ))
 
     return EvalSuiteConfig(
@@ -250,6 +255,7 @@ def expand_suite(suite: EvalSuiteConfig) -> List[RunConfig]:
                 output_path=output_path,
                 seed=suite.run.seed,
                 dataset_split=bench.split,
+                dataset_subset=bench.subset,
                 telemetry=suite.run.telemetry,
                 gpu_metrics=suite.run.gpu_metrics,
                 metadata=model_meta,

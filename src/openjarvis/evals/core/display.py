@@ -151,6 +151,13 @@ def print_metrics_table(console: Console, summary: RunSummary) -> None:
         headline += f"  [dim](warmup: {summary.warmup_samples_excluded} excluded)[/dim]"
     console.print(headline)
 
+    # MBU row from agentic trace metrics
+    if summary.mbu_stats is not None:
+        console.print(
+            f"  [bold]MBU:[/bold] avg={summary.mbu_stats.mean:.2f}%"
+            f"  max={summary.mbu_stats.max:.2f}%"
+        )
+
 
 def _stats_table(
     title: str,
@@ -382,6 +389,7 @@ def print_completion(
     summary: RunSummary,
     output_path: Optional[Path] = None,
     traces_dir: Optional[Path] = None,
+    bench_energy: Optional[Dict[str, float]] = None,
 ) -> None:
     """Print a completion panel showing where data was saved."""
     lines = [
@@ -392,6 +400,18 @@ def print_completion(
             f"  Errors: {summary.errors}"
         ),
     ]
+    # Show resolved count when available
+    resolved = summary.correct
+    if resolved > 0:
+        lines.append(f"  Resolved: {resolved}/{summary.scored_samples}")
+    # Bench-level energy fallback
+    if bench_energy is not None:
+        be_energy = bench_energy.get("total_energy_joules")
+        be_power = bench_energy.get("avg_power_watts")
+        if be_energy is not None:
+            lines.append(f"  [cyan]Bench Energy:[/cyan] {be_energy:.1f} J")
+        if be_power is not None:
+            lines.append(f"  [cyan]Bench Power:[/cyan]  {be_power:.1f} W")
     if output_path:
         lines.append(f"  [cyan]JSONL:[/cyan]   {output_path}")
         summary_path = (

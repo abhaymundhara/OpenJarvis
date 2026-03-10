@@ -1,4 +1,4 @@
-"""Recipe system — composable pillar configurations."""
+"""Recipe system — composable primitive configurations."""
 
 from openjarvis.recipes.composer import (
     recipe_to_eval_suite,

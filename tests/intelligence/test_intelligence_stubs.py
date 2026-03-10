@@ -1,4 +1,4 @@
-"""Tests for Intelligence pillar backward-compat shims."""
+"""Tests for Intelligence primitive backward-compat shims."""
 
 from __future__ import annotations
 

@@ -1,9 +1,9 @@
 site_name: OpenJarvis
-site_url: https://hazyresearch.stanford.edu/OpenJarvis/
-site_description: Programming abstractions for on-device AI
+site_url: https://open-jarvis.github.io/OpenJarvis/
+site_description: Composable, Programmable Systems for On-Device, Personal AI
 site_author: OpenJarvis Contributors
-repo_url: https://github.com/HazyResearch/OpenJarvis
-repo_name: HazyResearch/OpenJarvis
+repo_url: https://github.com/open-jarvis/OpenJarvis
+repo_name: open-jarvis/OpenJarvis
 edit_uri: edit/main/docs/
 
 copyright: Copyright &copy; 2026 OpenJarvis Contributors
@@ -12,7 +12,7 @@ theme:
   name: material
   language: en
   font:
-    text: Merriweather
+    text: Georgia
     code: JetBrains Mono
   features:
     - navigation.tabs
@@ -125,45 +125,35 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/HazyResearch/OpenJarvis
+      link: https://github.com/open-jarvis/OpenJarvis
 
 nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
+      - Code Snippets: getting-started/snippets.md
       - Configuration: getting-started/configuration.md
-  - User Guide:
-      - CLI Reference: user-guide/cli.md
-      - Python SDK: user-guide/python-sdk.md
-      - Agents: user-guide/agents.md
-      - Memory: user-guide/memory.md
-      - Tools: user-guide/tools.md
-      - Scheduler: user-guide/scheduler.md
-      - Telemetry & Traces: user-guide/telemetry.md
-      - Benchmarks: user-guide/benchmarks.md
-      - Evaluations: user-guide/evaluations.md
-      - Security: user-guide/security.md
-      - Channels: user-guide/channels.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Deep Research Assistant: tutorials/deep-research.md
+      - Scheduled Personal Ops: tutorials/scheduled-ops.md
+      - Messaging Hub: tutorials/messaging-hub.md
+      - Code Companion: tutorials/code-companion.md
   - Architecture:
       - Overview: architecture/overview.md
       - Intelligence: architecture/intelligence.md
-      - Inference Engine: architecture/engine.md
-      - Agentic Logic: architecture/agents.md
-      - Memory & Storage: architecture/memory.md
-      - Learning & Traces: architecture/learning.md
+      - Engine: architecture/engine.md
+      - Agents: architecture/agents.md
+      - Tools & Memory: architecture/memory.md
+      - Learning: architecture/learning.md
       - Query Flow: architecture/query-flow.md
-      - Design Principles: architecture/design-principles.md
       - Security: architecture/security.md
-      - Channels: architecture/channels.md
+      - Design Principles: architecture/design-principles.md
   - API Reference: api-reference/
-  - Deployment:
-      - Docker: deployment/docker.md
-      - systemd (Linux): deployment/systemd.md
-      - launchd (macOS): deployment/launchd.md
-      - API Server: deployment/api-server.md
   - Development:
       - Contributing: development/contributing.md
       - Extending OpenJarvis: development/extending.md
+      - Deployment: deployment/index.md
       - Roadmap: development/roadmap.md
       - Changelog: development/changelog.md

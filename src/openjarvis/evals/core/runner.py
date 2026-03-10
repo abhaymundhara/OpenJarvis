@@ -1,9 +1,23 @@
-"""EvalRunner — parallel execution of evaluation samples."""
+"""EvalRunner — parallel execution of evaluation samples.
+
+Supports two modes:
+- **Parallel mode** (default): Samples processed concurrently via ThreadPoolExecutor.
+- **Episode mode** (``episode_mode=True``): Samples processed sequentially within
+  episodes, with in-context example injection from prior successful completions.
+  Required for lifelong-learning benchmarks like LifelongAgentBench.
+
+When a dataset provides ``create_task_env()`` returning a ``TaskEnvironment``,
+samples are evaluated via multi-turn interactive loops instead of single-shot
+generation — matching benchmarks that require agent-environment interaction.
+"""
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
+import math
+import re
 import statistics
 import time
 from collections import defaultdict
@@ -13,6 +27,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from openjarvis.evals.core.backend import InferenceBackend
 from openjarvis.evals.core.dataset import DatasetProvider
+from openjarvis.evals.core.export import _hardware_info_dict
 from openjarvis.evals.core.scorer import Scorer
 from openjarvis.evals.core.tracker import ResultTracker
 from openjarvis.evals.core.types import (
@@ -29,6 +44,13 @@ except ImportError:  # pragma: no cover
     compute_efficiency = None  # type: ignore[assignment]
 
 LOGGER = logging.getLogger(__name__)
+
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks from model output."""
+    return _THINK_TAG_RE.sub("", text).strip()
 
 
 class EvalRunner:
@@ -73,10 +95,26 @@ class EvalRunner:
             split=cfg.dataset_split,
             seed=cfg.seed,
         )
+
+        # Auto-enable episode_mode when the dataset has iter_episodes()
+        # (i.e. it is a lifelong/sequential benchmark like LifelongAgentBench).
+        # This is enforced at the runner level so it applies regardless of
+        # how the runner is invoked (CLI, SDK, tests, etc.).
+        if not cfg.episode_mode and hasattr(self._dataset, "iter_episodes"):
+            LOGGER.info(
+                "%s requires sequential episode processing — "
+                "auto-enabling episode_mode.",
+                cfg.benchmark,
+            )
+            cfg = dataclasses.replace(cfg, episode_mode=True)
+            self._config = cfg
+
         records = list(self._dataset.iter_records())
         LOGGER.info(
-            "Running %s: %d samples, backend=%s, model=%s, workers=%d",
-            cfg.benchmark, len(records), cfg.backend, cfg.model, cfg.max_workers,
+            "Running %s: %d samples, backend=%s, model=%s, workers=%d, "
+            "episode_mode=%s",
+            cfg.benchmark, len(records), cfg.backend, cfg.model,
+            cfg.max_workers, cfg.episode_mode,
         )
 
         # --- Warmup phase (discard results) ---
@@ -105,16 +143,19 @@ class EvalRunner:
 
         total = len(records)
         try:
-            with ThreadPoolExecutor(max_workers=cfg.max_workers) as pool:
-                futures = {
-                    pool.submit(self._process_one, r): r for r in records
-                }
-                for future in as_completed(futures):
-                    result = future.result()
-                    self._results.append(result)
-                    self._flush_result(result)
-                    if progress_callback is not None:
-                        progress_callback(len(self._results), total)
+            if cfg.episode_mode:
+                self._run_episode_mode(records, progress_callback, total)
+            else:
+                with ThreadPoolExecutor(max_workers=cfg.max_workers) as pool:
+                    futures = {
+                        pool.submit(self._process_one, r): r for r in records
+                    }
+                    for future in as_completed(futures):
+                        result = future.result()
+                        self._results.append(result)
+                        self._flush_result(result)
+                        if progress_callback is not None:
+                            progress_callback(len(self._results), total)
         finally:
             if self._output_file:
                 self._output_file.close()
@@ -168,7 +209,7 @@ class EvalRunner:
         traces_dir.mkdir(parents=True, exist_ok=True)
         with open(traces_dir / "traces.jsonl", "w") as f:
             for result in self._results:
-                f.write(json.dumps(_result_to_trace_dict(result)) + "\n")
+                f.write(json.dumps(_result_to_trace_dict(result), default=str) + "\n")
         LOGGER.info("Traces written to %s", traces_dir)
         return traces_dir
 
@@ -176,11 +217,16 @@ class EvalRunner:
         """Process a single evaluation sample."""
         cfg = self._config
         try:
-            full = self._backend.generate_full(
-                record.problem,
+            gen_kwargs: dict = dict(
                 model=cfg.model,
                 temperature=cfg.temperature,
                 max_tokens=cfg.max_tokens,
+            )
+            if cfg.system_prompt:
+                gen_kwargs["system"] = cfg.system_prompt
+            full = self._backend.generate_full(
+                record.problem,
+                **gen_kwargs,
             )
             content = full.get("content", "")
             usage = full.get("usage", {})
@@ -262,6 +308,313 @@ class EvalRunner:
                 error=str(exc),
             )
 
+    # ------------------------------------------------------------------
+    # Episode mode: sequential processing with lifelong learning
+    # ------------------------------------------------------------------
+
+    # Max prior examples to inject (FIFO eviction), matching original default
+    _MAX_PRIOR_EXAMPLES = 3
+
+    def _run_episode_mode(
+        self,
+        records: List[EvalRecord],
+        progress_callback: Optional[Callable[[int, int], None]],
+        total: int,
+    ) -> None:
+        """Process samples sequentially within episodes.
+
+        Mirrors the original LifelongAgentBench ``PreviousSampleUtilizationCallback``:
+        successful completions are accumulated and injected as in-context
+        examples into subsequent tasks within the same episode.
+
+        The original injects the full interaction history (question + all
+        agent/environment exchanges) from prior successful sessions, not
+        just problem/answer summaries.  We replicate this by storing
+        the full message history for each successful task.
+        """
+        # Only treat a dataset as having interactive environments if it actually
+        # overrides create_task_env.  The DatasetProvider base class provides a
+        # default implementation that returns None, so hasattr() is always True —
+        # we must check for a real override to avoid calling env.reset() on None.
+        from openjarvis.evals.core.dataset import DatasetProvider
+        has_task_env = (
+            type(self._dataset).create_task_env
+            is not DatasetProvider.create_task_env
+        )
+
+        for episode in self._dataset.iter_episodes():
+            successful_examples: List[Dict[str, Any]] = []
+
+            for record in episode:
+                if has_task_env:
+                    result = self._process_interactive(
+                        record, successful_examples,
+                    )
+                else:
+                    # Inject prior examples into prompt, then single-shot
+                    augmented = self._inject_examples(
+                        record, successful_examples,
+                    )
+                    result = self._process_one(augmented)
+
+                self._results.append(result)
+                self._flush_result(result)
+
+                # Accumulate successful examples for lifelong learning.
+                # Store the full interaction history when available.
+                if result.is_correct:
+                    example: Dict[str, Any] = {
+                        "problem": record.problem,
+                        "answer": result.model_answer,
+                    }
+                    # Attach full interaction history if recorded
+                    interaction = result.scoring_metadata.get(
+                        "_interaction_history",
+                    ) if result.scoring_metadata else None
+                    if interaction:
+                        example["interaction_history"] = interaction
+                    successful_examples.append(example)
+                    # FIFO eviction matching original's utilized_sample_count
+                    if len(successful_examples) > self._MAX_PRIOR_EXAMPLES:
+                        successful_examples.pop(0)
+
+                if progress_callback is not None:
+                    progress_callback(len(self._results), total)
+
+    def _inject_examples(
+        self,
+        record: EvalRecord,
+        examples: List[Dict[str, Any]],
+    ) -> EvalRecord:
+        """Create a copy of the record with prior examples prepended.
+
+        Matches the original's ``PreviousSampleUtilizationCallback``
+        which injects the full interaction history (question + all
+        agent/environment exchanges) from prior successful tasks.
+        """
+        if not examples:
+            return record
+
+        example_text = "## Previously Completed Tasks\n\n"
+        for i, ex in enumerate(examples, 1):
+            example_text += f"### Example {i}\n"
+            # Use full interaction history if available (matching original)
+            history = ex.get("interaction_history")
+            if history and isinstance(history, list):
+                # Format the full multi-turn exchange
+                for msg in history:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    if role == "system":
+                        continue
+                    label = "Agent" if role == "assistant" else "User"
+                    example_text += f"{label}: {content}\n"
+                example_text += "\n"
+            else:
+                # Fallback: problem + answer summary
+                example_text += (
+                    f"Task: {ex['problem'][:800]}\n"
+                    f"Solution: {ex['answer'][:800]}\n\n"
+                )
+        example_text += "## Current Task\n\n"
+
+        return EvalRecord(
+            record_id=record.record_id,
+            problem=example_text + record.problem,
+            reference=record.reference,
+            category=record.category,
+            subject=record.subject,
+            metadata=record.metadata,
+        )
+
+    # ------------------------------------------------------------------
+    # Interactive multi-turn processing
+    # ------------------------------------------------------------------
+
+    _MAX_INTERACTIVE_TURNS_DEFAULT = 15
+
+    def _process_interactive(
+        self,
+        record: EvalRecord,
+        prior_examples: List[Dict[str, Any]],
+    ) -> EvalResult:
+        """Process a record via multi-turn environment interaction.
+
+        Used when the dataset provides ``create_task_env()``, e.g. for
+        LifelongAgentBench where agents must interact with DB/KG/OS
+        environments across multiple turns.
+
+        The full interaction history is recorded in scoring_metadata so
+        it can be injected into subsequent tasks in the same episode,
+        matching the original's ``PreviousSampleUtilizationCallback``.
+        """
+        cfg = self._config
+        env = None
+        total_latency = 0.0
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_cost = 0.0
+        all_responses: List[str] = []
+
+        try:
+            env = self._dataset.create_task_env(record)
+            env.reset(record)
+
+            # Build system prompt from record (first part before task)
+            system_prompt = ""
+            problem_text = record.problem
+            # Split on "## Task" or "## Question" to separate system from task
+            for sep in ("## Task\n", "## Question\n", "## Database Schema\n"):
+                if sep in problem_text:
+                    idx = problem_text.index(sep)
+                    system_prompt = problem_text[:idx].strip()
+                    break
+
+            # Build conversation with optional prior examples
+            messages: List[Dict[str, str]] = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+
+            # Inject prior examples (lifelong learning) — use full
+            # interaction history when available, matching the original's
+            # PreviousSampleUtilizationCallback which replays the complete
+            # chat history from prior successful sessions.
+            if prior_examples:
+                examples_text = (
+                    "Here are examples of previously completed tasks:\n\n"
+                )
+                for i, ex in enumerate(prior_examples, 1):
+                    history = ex.get("interaction_history")
+                    if history and isinstance(history, list):
+                        # Full interaction replay (original format)
+                        examples_text += f"Example {i}:\n"
+                        for msg in history:
+                            role = msg.get("role", "user")
+                            content = msg.get("content", "")
+                            if role == "system":
+                                continue
+                            label = "Agent" if role == "assistant" else "User"
+                            examples_text += f"{label}: {content}\n"
+                        examples_text += "\n"
+                    else:
+                        # Fallback: problem + answer summary
+                        examples_text += (
+                            f"Example {i}:\n"
+                            f"Task: {ex['problem'][:800]}\n"
+                            f"Solution: {ex['answer'][:800]}\n\n"
+                        )
+                messages.append({"role": "user", "content": examples_text})
+                messages.append({
+                    "role": "assistant",
+                    "content": "I've reviewed the examples. Ready.",
+                })
+
+            # Initial task message — always use the full problem text which
+            # contains the system prompt, schema, AND task instruction.
+            # env.reset() is called for side effects (DB init, container
+            # start) but its return value (schema-only observation) is
+            # intentionally NOT used as the prompt because record.problem
+            # already has everything the agent needs.
+            task_content = problem_text
+            messages.append({"role": "user", "content": task_content})
+
+            # Use environment's max_turns if available, else default
+            max_turns = (
+                env.max_turns
+                if hasattr(env, "max_turns")
+                else self._MAX_INTERACTIVE_TURNS_DEFAULT
+            )
+
+            for turn in range(max_turns):
+                # Format conversation as prompt for the backend
+                prompt = self._format_messages_as_prompt(messages)
+
+                full = self._backend.generate_full(
+                    prompt,
+                    model=cfg.model,
+                    system=system_prompt,
+                    temperature=cfg.temperature,
+                    max_tokens=cfg.max_tokens,
+                )
+                content = full.get("content", "")
+                usage = full.get("usage", {})
+                total_latency += full.get("latency_seconds", 0.0)
+                total_prompt_tokens += usage.get("prompt_tokens", 0)
+                total_completion_tokens += usage.get("completion_tokens", 0)
+                total_cost += full.get("cost_usd", 0.0)
+                all_responses.append(content)
+
+                # Strip <think> tags before parsing actions
+                cleaned = _strip_think_tags(content)
+                messages.append({"role": "assistant", "content": cleaned})
+
+                # Step the environment
+                observation, is_done = env.step(cleaned)
+                messages.append({"role": "user", "content": observation})
+
+                if is_done:
+                    break
+
+            # Evaluate
+            is_correct, scoring_meta = env.evaluate()
+            scoring_meta["num_turns"] = len(all_responses)
+            scoring_meta["interactive"] = True
+            # Store full interaction history for lifelong example injection.
+            # Filter out system messages to save space.
+            scoring_meta["_interaction_history"] = [
+                msg for msg in messages if msg.get("role") != "system"
+            ]
+
+            return EvalResult(
+                record_id=record.record_id,
+                model_answer="\n---\n".join(all_responses),
+                is_correct=is_correct,
+                score=1.0 if is_correct else (0.0 if is_correct is not None else None),
+                latency_seconds=total_latency,
+                prompt_tokens=total_prompt_tokens,
+                completion_tokens=total_completion_tokens,
+                cost_usd=total_cost,
+                scoring_metadata=scoring_meta,
+            )
+        except Exception as exc:
+            LOGGER.error(
+                "Interactive processing failed for %s: %s",
+                record.record_id, exc,
+            )
+            return EvalResult(
+                record_id=record.record_id,
+                model_answer="",
+                error=str(exc),
+                scoring_metadata={"interactive": True, "error": str(exc)},
+            )
+        finally:
+            if env is not None:
+                try:
+                    env.close()
+                except Exception:
+                    pass
+
+    @staticmethod
+    def _format_messages_as_prompt(messages: List[Dict[str, str]]) -> str:
+        """Format a message list as a single prompt string.
+
+        Uses a clear role-labeled format that works with most LLMs when
+        passed as a user prompt via the backend.
+        """
+        parts: List[str] = []
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            if role == "system":
+                # System prompt handled separately via backend's system param
+                continue
+            elif role == "user":
+                parts.append(f"[User]\n{content}")
+            elif role == "assistant":
+                parts.append(f"[Assistant]\n{content}")
+        parts.append("[Assistant]")  # Prompt the next assistant turn
+        return "\n\n".join(parts)
+
     def _flush_result(self, result: EvalResult) -> None:
         """Append a single result to the output JSONL file."""
         if not self._output_file:
@@ -293,7 +646,21 @@ class EvalRunner:
             "throughput_per_watt": result.throughput_per_watt,
             "mean_itl_ms": result.mean_itl_ms,
         }
-        self._output_file.write(json.dumps(record_dict) + "\n")
+        try:
+            line = json.dumps(record_dict, default=str)
+        except Exception as exc:
+            LOGGER.error(
+                "Failed to serialize result %s to JSON: %s — writing error record",
+                result.record_id, exc,
+            )
+            line = json.dumps({
+                "record_id": result.record_id,
+                "benchmark": self._config.benchmark,
+                "model": self._config.model,
+                "is_correct": result.is_correct,
+                "error": f"serialization_error: {exc}",
+            })
+        self._output_file.write(line + "\n")
         self._output_file.flush()
 
         # Notify trackers of each result
@@ -310,10 +677,10 @@ class EvalRunner:
         """Determine the output file path."""
         if self._config.output_path:
             return Path(self._config.output_path)
-        # Auto-generate based on benchmark + model
+        # Auto-generate under results/ based on benchmark + model
         model_slug = self._config.model.replace("/", "-").replace(":", "-")
         name = f"{self._config.benchmark}_{model_slug}.jsonl"
-        return Path(name)
+        return Path("results") / name
 
     def _compute_summary(
         self,
@@ -398,6 +765,26 @@ class EvalRunner:
         total_output_tokens = sum(r.completion_tokens for r in results)
         avg_power = statistics.mean(power_vals) if power_vals else 0.0
 
+        # Compute efficiency section
+        efficiency_dict: Dict[str, Any] = {
+            "accuracy": round(accuracy, 4),
+            "total_energy_joules": round(total_energy, 6),
+            "avg_power_watts": round(avg_power, 4),
+            "ipj": (
+                round(accuracy / total_energy, 6)
+                if total_energy > 0 else None
+            ),
+            "ipw": (
+                round(accuracy / avg_power, 6)
+                if avg_power > 0 else None
+            ),
+        }
+
+        # Compute normalized statistics (trim 5% outliers by latency)
+        normalized_stats, normalized_eff = _compute_normalized_stats(
+            results, accuracy,
+        )
+
         return RunSummary(
             benchmark=cfg.benchmark,
             category=category,
@@ -434,7 +821,78 @@ class EvalRunner:
             avg_power_watts=round(avg_power, 4),
             total_input_tokens=total_input_tokens,
             total_output_tokens=total_output_tokens,
+            efficiency=efficiency_dict,
+            normalized_statistics=normalized_stats,
+            normalized_efficiency=normalized_eff,
         )
+
+
+def _compute_normalized_stats(
+    results: List[EvalResult],
+    accuracy: float,
+) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """Compute stats after trimming top/bottom 5% outliers by latency.
+
+    Returns (normalized_statistics, normalized_efficiency) or (None, None)
+    if fewer than 4 results.
+    """
+    n = len(results)
+    if n < 4:
+        return None, None
+
+    trim_count = max(1, math.floor(n * 0.05))
+    sorted_results = sorted(results, key=lambda r: r.latency_seconds)
+    trimmed = sorted_results[trim_count: n - trim_count]
+
+    if not trimmed:
+        return None, None
+
+    # Recompute key metric stats on trimmed set
+    t_scored = [r for r in trimmed if r.is_correct is not None]
+    t_correct = [r for r in t_scored if r.is_correct]
+    t_accuracy = len(t_correct) / len(t_scored) if t_scored else 0.0
+    t_latency_vals = [r.latency_seconds for r in trimmed if r.latency_seconds > 0]
+    t_energy_vals = [r.energy_joules for r in trimmed if r.energy_joules > 0]
+    t_power_vals = [r.power_watts for r in trimmed if r.power_watts > 0]
+    t_throughput_vals = [
+        r.throughput_tok_per_sec for r in trimmed
+        if r.throughput_tok_per_sec > 0
+    ]
+    t_mbu_vals = [r.mbu_pct for r in trimmed if r.mbu_pct > 0]
+
+    norm_stats: Dict[str, Any] = {
+        "_description": (
+            f"Statistics recomputed after trimming {trim_count} outlier(s) "
+            f"from each end by latency ({len(trimmed)}/{n} results kept)"
+        ),
+        "_outliers_removed": trim_count * 2,
+        "accuracy": round(t_accuracy, 4),
+        "latency_stats": _metric_stats_to_dict(_metric_stats(t_latency_vals)),
+        "energy_stats": _metric_stats_to_dict(_metric_stats(t_energy_vals)),
+        "power_stats": _metric_stats_to_dict(_metric_stats(t_power_vals)),
+        "throughput_stats": _metric_stats_to_dict(
+            _metric_stats(t_throughput_vals),
+        ),
+        "mbu_stats": _metric_stats_to_dict(_metric_stats(t_mbu_vals)),
+    }
+
+    t_total_energy = sum(r.energy_joules for r in trimmed)
+    t_avg_power = statistics.mean(t_power_vals) if t_power_vals else 0.0
+    norm_eff: Dict[str, Any] = {
+        "accuracy": round(t_accuracy, 4),
+        "total_energy_joules": round(t_total_energy, 6),
+        "avg_power_watts": round(t_avg_power, 4),
+        "ipj": (
+            round(t_accuracy / t_total_energy, 6)
+            if t_total_energy > 0 else None
+        ),
+        "ipw": (
+            round(t_accuracy / t_avg_power, 6)
+            if t_avg_power > 0 else None
+        ),
+    }
+
+    return norm_stats, norm_eff
 
 
 def _eval_percentile(data: list[float], p: float) -> float:
@@ -483,6 +941,7 @@ def _metric_stats_to_dict(ms: Optional[MetricStats]) -> Optional[Dict[str, float
 def _summary_to_dict(s: RunSummary) -> Dict[str, Any]:
     """Convert a RunSummary to a JSON-serializable dict."""
     return {
+        "hardware_info": _hardware_info_dict(),
         "benchmark": s.benchmark,
         "category": s.category,
         "backend": s.backend,
@@ -524,6 +983,9 @@ def _summary_to_dict(s: RunSummary) -> Dict[str, Any]:
         "avg_power_watts": s.avg_power_watts,
         "total_input_tokens": s.total_input_tokens,
         "total_output_tokens": s.total_output_tokens,
+        "efficiency": s.efficiency,
+        "normalized_statistics": s.normalized_statistics,
+        "normalized_efficiency": s.normalized_efficiency,
     }
 
 

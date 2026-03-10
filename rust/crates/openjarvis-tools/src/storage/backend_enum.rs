@@ -1,6 +1,9 @@
 //! MemoryBackendEnum — static dispatch over storage backends.
 
 use super::bm25::BM25Memory;
+use super::colbert::ColBERTMemory;
+use super::faiss::FAISSMemory;
+use super::hybrid::HybridMemory;
 use super::knowledge_graph::KnowledgeGraphMemory;
 use super::sqlite::SQLiteMemory;
 use super::traits::MemoryBackend;
@@ -11,6 +14,9 @@ use serde_json::Value;
 pub enum MemoryBackendEnum {
     Sqlite(SQLiteMemory),
     Bm25(BM25Memory),
+    Faiss(FAISSMemory),
+    ColBert(ColBERTMemory),
+    Hybrid(HybridMemory),
     KnowledgeGraph(KnowledgeGraphMemory),
 }
 
@@ -19,6 +25,9 @@ macro_rules! delegate_memory {
         match $self {
             MemoryBackendEnum::Sqlite(m) => m.$method($($arg),*),
             MemoryBackendEnum::Bm25(m) => m.$method($($arg),*),
+            MemoryBackendEnum::Faiss(m) => m.$method($($arg),*),
+            MemoryBackendEnum::ColBert(m) => m.$method($($arg),*),
+            MemoryBackendEnum::Hybrid(m) => m.$method($($arg),*),
             MemoryBackendEnum::KnowledgeGraph(m) => m.$method($($arg),*),
         }
     };
@@ -65,6 +74,9 @@ impl MemoryBackendEnum {
         match self {
             MemoryBackendEnum::Sqlite(_) => "sqlite",
             MemoryBackendEnum::Bm25(_) => "bm25",
+            MemoryBackendEnum::Faiss(_) => "faiss",
+            MemoryBackendEnum::ColBert(_) => "colbert",
+            MemoryBackendEnum::Hybrid(_) => "hybrid",
             MemoryBackendEnum::KnowledgeGraph(_) => "knowledge_graph",
         }
     }

@@ -16,13 +16,12 @@ impl KnowledgeGraphMemory {
     pub fn new(db_path: &Path) -> Result<Self, OpenJarvisError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                OpenJarvisError::Io(std::io::Error::other(e))
             })?;
         }
 
         let conn = Connection::open(db_path).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -47,8 +46,7 @@ impl KnowledgeGraphMemory {
             CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_id);",
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -79,8 +77,7 @@ impl KnowledgeGraphMemory {
             rusqlite::params![id, name, entity_type, props],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -107,8 +104,7 @@ impl KnowledgeGraphMemory {
             rusqlite::params![id, source_id, target_id, relation_type, props],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -129,8 +125,7 @@ impl KnowledgeGraphMemory {
                  WHERE r.target_id = ?1",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -144,8 +139,7 @@ impl KnowledgeGraphMemory {
                 ))
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?
@@ -183,8 +177,7 @@ impl MemoryBackend for KnowledgeGraphMemory {
                  FROM entities WHERE name LIKE ?1 LIMIT ?2",
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -203,8 +196,7 @@ impl MemoryBackend for KnowledgeGraphMemory {
                 })
             })
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?
@@ -222,8 +214,7 @@ impl MemoryBackend for KnowledgeGraphMemory {
                 rusqlite::params![doc_id],
             )
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -234,8 +225,7 @@ impl MemoryBackend for KnowledgeGraphMemory {
         let conn = self.conn.lock();
         conn.execute_batch("DELETE FROM relations; DELETE FROM entities;")
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -247,8 +237,7 @@ impl MemoryBackend for KnowledgeGraphMemory {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM entities", [], |row| row.get(0))
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from openjarvis.core.types import ToolCall
@@ -13,6 +14,8 @@ from openjarvis.mcp.protocol import (
     MCPResponse,
 )
 from openjarvis.tools._stubs import BaseTool, ToolExecutor
+
+logger = logging.getLogger(__name__)
 
 # Tool annotation hints per MCP spec 2025-11-25
 _TOOL_ANNOTATIONS: Dict[str, Dict[str, Any]] = {
@@ -141,8 +144,8 @@ class MCPServer:
         for cls in _tool_classes:
             try:
                 tools.append(cls())
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Failed to instantiate tool from %r: %s", cls, exc)
 
         # Also check ToolRegistry for any user-registered tools
         try:
@@ -154,10 +157,10 @@ class MCPServer:
                         tool = ToolRegistry.create(key)
                         if isinstance(tool, BaseTool):
                             tools.append(tool)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+                    except Exception as exc:
+                        logger.warning("Failed to register user tool: %s", exc)
+        except Exception as exc:
+            logger.warning("Failed to discover tools from registry: %s", exc)
 
         return tools
 

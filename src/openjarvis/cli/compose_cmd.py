@@ -14,7 +14,7 @@ from rich.table import Table
 def compose() -> None:
     """Compose, run, benchmark, and deploy OpenJarvis configurations.
 
-    Recipes are unified TOML configs that wire all five pillars
+    Recipes are unified TOML configs that wire all five primitives
     (Intelligence, Engine, Agent, Tools, Learning).  They come in two
     kinds:
 

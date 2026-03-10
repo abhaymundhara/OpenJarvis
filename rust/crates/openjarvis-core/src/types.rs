@@ -1,4 +1,4 @@
-//! Canonical data types shared across all OpenJarvis pillars.
+//! Canonical data types shared across all OpenJarvis primitives.
 //!
 //! Direct Rust translation of `src/openjarvis/core/types.py`.
 

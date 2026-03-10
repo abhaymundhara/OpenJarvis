@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from openjarvis.security.ssrf import check_ssrf, is_private_ip
+from openjarvis.security.ssrf import _check_ssrf_python, check_ssrf, is_private_ip
 
 
 class TestIsPrivateIp:
@@ -43,6 +43,13 @@ class TestIsPrivateIp:
 
 
 class TestCheckSsrf:
+    """Tests for SSRF protection.
+
+    The Rust backend performs real DNS resolution, so tests that need to
+    mock DNS use ``_check_ssrf_python`` (the pure-Python implementation)
+    instead of the Rust-backed ``check_ssrf``.
+    """
+
     def test_blocks_aws_metadata(self):
         result = check_ssrf("http://169.254.169.254/latest/meta-data/")
         assert result is not None
@@ -59,12 +66,12 @@ class TestCheckSsrf:
         assert "Blocked host" in result
 
     def test_allows_normal_urls(self):
-        # Mock DNS resolution to return a public IP
+        # Use Python impl so we can mock DNS resolution
         with patch("openjarvis.security.ssrf.socket.getaddrinfo") as mock_dns:
             mock_dns.return_value = [
                 (2, 1, 6, "", ("93.184.216.34", 0)),
             ]
-            result = check_ssrf("https://example.com")
+            result = _check_ssrf_python("https://example.com")
         assert result is None
 
     def test_blocks_localhost_url(self):
@@ -72,7 +79,7 @@ class TestCheckSsrf:
             mock_dns.return_value = [
                 (2, 1, 6, "", ("127.0.0.1", 0)),
             ]
-            result = check_ssrf("http://localhost:8080/admin")
+            result = _check_ssrf_python("http://localhost:8080/admin")
         assert result is not None
         assert "private IP" in result
 
@@ -81,14 +88,15 @@ class TestCheckSsrf:
             mock_dns.return_value = [
                 (2, 1, 6, "", ("192.168.1.1", 0)),
             ]
-            result = check_ssrf("http://internal-service.local/api")
+            result = _check_ssrf_python("http://internal-service.local/api")
         assert result is not None
         assert "private IP" in result
 
     def test_no_hostname(self):
+        # Rust returns "Invalid URL" for malformed URLs (no scheme => parse error)
         result = check_ssrf("not-a-url")
         assert result is not None
-        assert "No hostname" in result
+        assert "Invalid URL" in result
 
     def test_dns_failure_allowed(self):
         """DNS resolution failure should not block — request will fail at HTTP time."""
@@ -98,7 +106,7 @@ class TestCheckSsrf:
             "openjarvis.security.ssrf.socket.getaddrinfo",
             side_effect=socket.gaierror("Name resolution failed"),
         ):
-            result = check_ssrf("https://nonexistent.example.com")
+            result = _check_ssrf_python("https://nonexistent.example.com")
         assert result is None
 
     def test_blocks_dns_rebinding_to_private(self):
@@ -107,7 +115,7 @@ class TestCheckSsrf:
             mock_dns.return_value = [
                 (2, 1, 6, "", ("10.0.0.5", 0)),
             ]
-            result = check_ssrf("https://evil-rebind.example.com")
+            result = _check_ssrf_python("https://evil-rebind.example.com")
         assert result is not None
         assert "private IP" in result
 

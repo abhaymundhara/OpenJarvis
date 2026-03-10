@@ -43,22 +43,32 @@ def list_models() -> None:
     table = Table(title="Available Models")
     table.add_column("Engine", style="cyan")
     table.add_column("Model", style="green")
-    table.add_column("Parameters", justify="right")
+    table.add_column("Params", justify="right")
+    table.add_column("Active", justify="right")
     table.add_column("Context", justify="right")
     table.add_column("VRAM", justify="right")
+    table.add_column("Arch", style="dim")
 
     for engine_key, model_ids in all_models.items():
         for mid in model_ids:
             try:
                 spec = ModelRegistry.get(mid)
                 params = f"{spec.parameter_count_b}B" if spec.parameter_count_b else "-"
+                active = (
+                    f"{spec.active_parameter_count_b}B"
+                    if spec.active_parameter_count_b
+                    else "-"
+                )
                 ctx = f"{spec.context_length:,}" if spec.context_length else "-"
                 vram = f"{spec.min_vram_gb}GB" if spec.min_vram_gb else "-"
+                arch = spec.metadata.get("architecture", "-")
             except KeyError:
                 params = "-"
+                active = "-"
                 ctx = "-"
                 vram = "-"
-            table.add_row(engine_key, mid, params, ctx, vram)
+                arch = "-"
+            table.add_row(engine_key, mid, params, active, ctx, vram, arch)
 
     console.print(table)
 
@@ -83,22 +93,58 @@ def info(model_name: str) -> None:
 
     spec = ModelRegistry.get(model_name)
     params = f"{spec.parameter_count_b}B" if spec.parameter_count_b else "unknown"
+    active = (
+        f"{spec.active_parameter_count_b}B"
+        if spec.active_parameter_count_b
+        else "-"
+    )
     ctx_len = f"{spec.context_length:,}" if spec.context_length else "unknown"
     vram = f"{spec.min_vram_gb}GB" if spec.min_vram_gb else "-"
-    engines = ", ".join(spec.supported_engines) if spec.supported_engines else "-"
+    engines_str = (
+        ", ".join(spec.supported_engines) if spec.supported_engines else "-"
+    )
     provider = spec.provider or "-"
     api_key = "required" if spec.requires_api_key else "not required"
     lines = [
-        f"[bold]Model ID:[/bold]     {spec.model_id}",
-        f"[bold]Name:[/bold]         {spec.name}",
-        f"[bold]Parameters:[/bold]   {params}",
-        f"[bold]Context:[/bold]      {ctx_len}",
-        f"[bold]Quantization:[/bold] {spec.quantization.value}",
-        f"[bold]Min VRAM:[/bold]     {vram}",
-        f"[bold]Engines:[/bold]      {engines}",
-        f"[bold]Provider:[/bold]     {provider}",
-        f"[bold]API Key:[/bold]      {api_key}",
+        f"[bold]Model ID:[/bold]       {spec.model_id}",
+        f"[bold]Name:[/bold]           {spec.name}",
+        f"[bold]Parameters:[/bold]     {params}",
+        f"[bold]Active Params:[/bold]  {active}",
+        f"[bold]Context:[/bold]        {ctx_len}",
+        f"[bold]Quantization:[/bold]   {spec.quantization.value}",
+        f"[bold]Min VRAM:[/bold]       {vram}",
+        f"[bold]Engines:[/bold]        {engines_str}",
+        f"[bold]Provider:[/bold]       {provider}",
+        f"[bold]API Key:[/bold]        {api_key}",
     ]
+
+    # Append metadata fields with well-known labels
+    meta_labels = {
+        "architecture": "Architecture",
+        "hf_repo": "HuggingFace",
+        "url": "More Info",
+        "teacher": "Teacher Model",
+        "quantization": "Quant Format",
+        "license": "License",
+        "pricing_input": "Price (input)",
+        "pricing_output": "Price (output)",
+    }
+    for key, label in meta_labels.items():
+        value = spec.metadata.get(key)
+        if value is not None:
+            if key.startswith("pricing_"):
+                value = f"${value}/M tokens"
+            elif key == "hf_repo":
+                value = f"https://huggingface.co/{value}"
+            pad = " " * max(1, 14 - len(label))
+            lines.append(f"[bold]{label}:[/bold]{pad}{value}")
+
+    # Any remaining metadata not covered above
+    extra_keys = set(spec.metadata) - set(meta_labels)
+    for key in sorted(extra_keys):
+        pad = " " * max(1, 14 - len(key))
+        lines.append(f"[bold]{key}:[/bold]{pad}{spec.metadata[key]}")
+
     console.print(Panel("\n".join(lines), title=spec.name, border_style="blue"))
 
 

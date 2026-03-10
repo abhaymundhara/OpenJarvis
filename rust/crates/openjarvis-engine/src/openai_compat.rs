@@ -59,6 +59,22 @@ impl OpenAICompatEngine {
         Self::new("lmstudio", host, None, 120.0)
     }
 
+    pub fn exo(host: &str) -> Self {
+        Self::new("exo", host, None, 120.0)
+    }
+
+    pub fn nexa(host: &str) -> Self {
+        Self::new("nexa", host, None, 120.0)
+    }
+
+    pub fn uzu(host: &str) -> Self {
+        Self::new("uzu", host, None, 120.0)
+    }
+
+    pub fn apple_fm(host: &str) -> Self {
+        Self::new("apple_fm", host, None, 120.0)
+    }
+
     fn build_headers(&self) -> reqwest::header::HeaderMap {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
@@ -336,5 +352,29 @@ mod tests {
     fn test_sglang_factory() {
         let engine = OpenAICompatEngine::sglang("http://localhost:30000");
         assert_eq!(engine.engine_id(), "sglang");
+    }
+
+    #[test]
+    fn test_exo_factory() {
+        let engine = OpenAICompatEngine::exo("http://localhost:52415");
+        assert_eq!(engine.engine_id(), "exo");
+    }
+
+    #[test]
+    fn test_nexa_factory() {
+        let engine = OpenAICompatEngine::nexa("http://localhost:18181");
+        assert_eq!(engine.engine_id(), "nexa");
+    }
+
+    #[test]
+    fn test_uzu_factory() {
+        let engine = OpenAICompatEngine::uzu("http://localhost:8080");
+        assert_eq!(engine.engine_id(), "uzu");
+    }
+
+    #[test]
+    fn test_apple_fm_factory() {
+        let engine = OpenAICompatEngine::apple_fm("http://localhost:8079");
+        assert_eq!(engine.engine_id(), "apple_fm");
     }
 }

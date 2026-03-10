@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from collections.abc import AsyncIterator, Sequence
 from typing import Any, Dict, List
 
@@ -16,6 +18,8 @@ from openjarvis.engine._base import (
     messages_to_dicts,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @EngineRegistry.register("ollama")
 class OllamaEngine(InferenceEngine):
@@ -27,8 +31,12 @@ class OllamaEngine(InferenceEngine):
         self,
         host: str = "http://localhost:11434",
         *,
-        timeout: float = 120.0,
+        timeout: float = 1800.0,
     ) -> None:
+        # Allow OLLAMA_HOST env var to override the default
+        env_host = os.environ.get("OLLAMA_HOST")
+        if env_host:
+            host = env_host
         self._host = host.rstrip("/")
         self._client = httpx.Client(base_url=self._host, timeout=timeout)
 
@@ -41,9 +49,20 @@ class OllamaEngine(InferenceEngine):
         max_tokens: int = 1024,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+        msg_dicts = messages_to_dicts(messages)
+        # Ollama expects tool_call arguments as dicts, not JSON strings
+        for md in msg_dicts:
+            for tc in md.get("tool_calls", []):
+                fn = tc.get("function", {})
+                args = fn.get("arguments")
+                if isinstance(args, str):
+                    try:
+                        fn["arguments"] = json.loads(args)
+                    except (json.JSONDecodeError, TypeError):
+                        pass
         payload: Dict[str, Any] = {
             "model": model,
-            "messages": messages_to_dicts(messages),
+            "messages": msg_dicts,
             "stream": False,
             "options": {
                 "temperature": temperature,
@@ -55,6 +74,16 @@ class OllamaEngine(InferenceEngine):
         tools = kwargs.get("tools")
         if tools:
             payload["tools"] = tools
+
+        # Apply structured output / JSON mode
+        response_format = kwargs.get("response_format")
+        if response_format is not None:
+            from openjarvis.engine._stubs import ResponseFormat
+
+            if isinstance(response_format, ResponseFormat):
+                payload["format"] = "json"
+            elif isinstance(response_format, dict):
+                payload["format"] = "json"
         try:
             resp = self._client.post("/api/chat", json=payload)
             if resp.status_code == 400 and tools:
@@ -152,7 +181,13 @@ class OllamaEngine(InferenceEngine):
         try:
             resp = self._client.get("/api/tags")
             resp.raise_for_status()
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError):
+        except (
+            httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError,
+        ) as exc:
+            logger.warning(
+                "Failed to list models from Ollama at %s: %s",
+                self._host, exc,
+            )
             return []
         data = resp.json()
         return [m["name"] for m in data.get("models", [])]
@@ -161,7 +196,8 @@ class OllamaEngine(InferenceEngine):
         try:
             resp = self._client.get("/api/tags", timeout=2.0)
             return resp.status_code == 200
-        except Exception:
+        except Exception as exc:
+            logger.debug("Ollama health check failed at %s: %s", self._host, exc)
             return False
 
     def close(self) -> None:

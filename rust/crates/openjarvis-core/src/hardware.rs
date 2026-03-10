@@ -110,7 +110,7 @@ fn detect_amd_gpu() -> Option<GpuInfo> {
     let vram_raw = run_cmd(&["rocm-smi", "--showmeminfo", "vram"]);
     for line in vram_raw.lines() {
         if line.contains("Total Memory (B):") {
-            if let Some(val) = line.split(':').last() {
+            if let Some(val) = line.split(':').next_back() {
                 if let Ok(bytes) = val.trim().parse::<f64>() {
                     vram_gb = (bytes / (1024.0 * 1024.0 * 1024.0) * 10.0).round() / 10.0;
                 }
@@ -150,7 +150,7 @@ fn detect_apple_gpu() -> Option<GpuInfo> {
     for line in raw.lines() {
         let trimmed = line.trim();
         if trimmed.contains("Chipset Model") {
-            let name = trimmed.split(':').last().unwrap_or("Apple Silicon").trim();
+            let name = trimmed.split(':').next_back().unwrap_or("Apple Silicon").trim();
             return Some(GpuInfo {
                 vendor: "apple".into(),
                 name: name.to_string(),

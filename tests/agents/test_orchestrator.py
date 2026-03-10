@@ -529,3 +529,101 @@ class TestOrchestratorStructuredMode:
         system_msg = messages[0].content
         assert "### calculator" in system_msg
         assert "expression" in system_msg
+
+
+class TestOrchestratorParallelTools:
+    """Tests for parallel tool execution."""
+
+    def test_parallel_tool_execution(self):
+        """Multiple tool calls execute in parallel and return in correct order."""
+        import time
+
+        class _SlowTool(BaseTool):
+            tool_id = "slow"
+
+            @property
+            def spec(self) -> ToolSpec:
+                return ToolSpec(
+                    name="slow",
+                    description="Slow tool.",
+                    parameters={
+                        "type": "object",
+                        "properties": {"id": {"type": "string"}},
+                    },
+                )
+
+            def execute(self, **params) -> ToolResult:
+                time.sleep(0.1)  # Simulate slow operation
+                return ToolResult(
+                    tool_name="slow",
+                    content=f"result_{params.get('id', '')}",
+                    success=True,
+                )
+
+        engine = MagicMock()
+        engine.engine_id = "mock"
+        engine.generate.side_effect = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "name": "slow", "arguments": '{"id":"1"}'},
+                    {"id": "c2", "name": "slow", "arguments": '{"id":"2"}'},
+                    {"id": "c3", "name": "slow", "arguments": '{"id":"3"}'},
+                ],
+                "usage": {
+                    "prompt_tokens": 5,
+                    "completion_tokens": 3,
+                    "total_tokens": 8,
+                },
+                "model": "test-model",
+                "finish_reason": "tool_calls",
+            },
+            {
+                "content": "All done.",
+                "usage": {
+                    "prompt_tokens": 20,
+                    "completion_tokens": 3,
+                    "total_tokens": 23,
+                },
+                "model": "test-model",
+                "finish_reason": "stop",
+            },
+        ]
+
+        agent = OrchestratorAgent(
+            engine, "test-model", tools=[_SlowTool()], parallel_tools=True,
+        )
+        t0 = time.time()
+        result = agent.run("Do things")
+        elapsed = time.time() - t0
+
+        assert result.content == "All done."
+        assert len(result.tool_results) == 3
+        # Results should be in original order
+        assert result.tool_results[0].content == "result_1"
+        assert result.tool_results[1].content == "result_2"
+        assert result.tool_results[2].content == "result_3"
+        # Should be parallel — 3 tools at 0.1s each should take < 0.25s, not 0.3s+
+        assert elapsed < 0.25
+
+    def test_sequential_tool_execution(self):
+        """parallel_tools=False runs tools sequentially."""
+        engine = _make_engine_multi_tool()
+        agent = OrchestratorAgent(
+            engine, "test-model",
+            tools=[_CalculatorStub(), _ThinkStub()],
+            parallel_tools=False,
+        )
+        result = agent.run("Do things")
+        assert result.content == "Done."
+        assert len(result.tool_results) == 2
+
+    def test_single_tool_call_no_parallel(self):
+        """Single tool call should not use parallel path even if parallel_tools=True."""
+        engine = _make_engine_with_tool_call()
+        agent = OrchestratorAgent(
+            engine, "test-model", tools=[_CalculatorStub()],
+            parallel_tools=True,
+        )
+        result = agent.run("What is 2+2?")
+        assert result.content == "The answer is 4."

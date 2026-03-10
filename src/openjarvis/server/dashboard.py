@@ -184,7 +184,7 @@ DASHBOARD_HTML = """\
   <div class="providers">
     <div class="provider-card openai">
       <div class="pname">OpenAI</div>
-      <div class="pmodel">GPT 5.2 &mdash; $1.75 / $14.00 per 1M tokens</div>
+      <div class="pmodel">GPT-5.3 &mdash; $2.00 / $10.00 per 1M tokens</div>
       <div class="savings-amount" id="save-openai">$0.00</div>
       <div class="breakdown">
         <div class="item">
@@ -229,16 +229,64 @@ DASHBOARD_HTML = """\
     </div>
   </div>
 
+  <!-- Monthly Projection -->
+  <div class="providers-heading">Monthly Projection</div>
+  <div class="providers">
+    <div class="provider-card openai">
+      <div class="pname">vs OpenAI</div>
+      <div class="pmodel">projected monthly savings</div>
+      <div class="savings-amount green" id="proj-openai">$0.00</div>
+      <div class="sub">per month at current rate</div>
+    </div>
+    <div class="provider-card anthropic">
+      <div class="pname">vs Anthropic</div>
+      <div class="pmodel">projected monthly savings</div>
+      <div class="savings-amount green" id="proj-anthropic">$0.00</div>
+      <div class="sub">per month at current rate</div>
+    </div>
+    <div class="provider-card google">
+      <div class="pname">vs Google</div>
+      <div class="pmodel">projected monthly savings</div>
+      <div class="savings-amount green" id="proj-google">$0.00</div>
+      <div class="sub">per month at current rate</div>
+    </div>
+  </div>
+
+  <!-- Cloud Agent Platforms -->
+  <div class="providers-heading">vs Cloud Agent Platforms</div>
+  <div class="providers" style="grid-template-columns: 1fr;">
+    <div class="provider-card" style="border-top: 3px solid var(--purple);">
+      <div class="pname">Typical Cloud Agent Platform</div>
+      <div class="pmodel">based on published API pricing tiers</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;
+        gap:20px;margin-top:16px">
+        <div>
+          <div class="blabel">MODERATE USE</div>
+          <div class="bvalue orange">$15&ndash;60/mo</div>
+        </div>
+        <div>
+          <div class="blabel">HEAVY USE</div>
+          <div class="bvalue" style="color: var(--red);">$100&ndash;400+/mo</div>
+        </div>
+        <div>
+          <div class="blabel">YOUR COST</div>
+          <div class="bvalue green" style="font-size: 24px;">$0.00</div>
+          <div class="sub">local inference</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Energy and FLOPs -->
   <div class="providers-heading">Energy &amp; Compute Avoided</div>
   <div class="metrics-row">
     <div class="metric-card">
-      <div class="mheading">Energy Saved (vs GPT 5.2)</div>
+      <div class="mheading">Energy Saved (vs GPT-5.3)</div>
       <div class="mvalue green" id="energy-joules">0 <span class="munit">J</span></div>
       <div class="msub" id="energy-kwh">0 kWh of cloud datacenter energy avoided</div>
     </div>
     <div class="metric-card">
-      <div class="mheading">FLOPs Avoided (vs GPT 5.2)</div>
+      <div class="mheading">FLOPs Avoided (vs GPT-5.3)</div>
       <div class="mvalue purple" id="flops-val">0 <span class="munit">FLOP</span></div>
       <div class="msub" id="flops-sub">cloud compute operations not needed</div>
     </div>
@@ -306,8 +354,8 @@ async function refresh() {
       providerMap[p.provider] = p;
     });
 
-    // OpenAI / GPT 5.2
-    const oa = providerMap['gpt-5.2'] || {};
+    // OpenAI / GPT-5.3
+    const oa = providerMap['gpt-5.3'] || {};
     document.getElementById('save-openai')
       .textContent = fmtDollar(oa.total_cost || 0);
     document.getElementById('save-openai-in')
@@ -333,7 +381,16 @@ async function refresh() {
     document.getElementById('save-google-out')
       .textContent = fmtDollar(go.output_cost || 0);
 
-    // Energy / FLOPs (use GPT 5.2 as reference)
+    // Monthly projections
+    const proj = d.monthly_projection || {};
+    document.getElementById('proj-openai')
+      .textContent = fmtDollar(proj['gpt-5.3'] || 0);
+    document.getElementById('proj-anthropic')
+      .textContent = fmtDollar(proj['claude-opus-4.6'] || 0);
+    document.getElementById('proj-google')
+      .textContent = fmtDollar(proj['gemini-3.1-pro'] || 0);
+
+    // Energy / FLOPs (use GPT-5.3 as reference)
     const ej = oa.energy_joules || 0;
     const eWh = oa.energy_wh || 0;
     const fl = oa.flops || 0;

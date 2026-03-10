@@ -344,20 +344,15 @@ Available benchmarks:
 
 ## `jarvis channel`
 
-Manage messaging channels for multi-platform communication via the OpenClaw gateway.
+Manage messaging channels for multi-platform communication. Channels connect directly to platform APIs (Telegram, Discord, Slack, etc.) -- no gateway required.
 
 ### `jarvis channel list`
 
-List available channels from the connected gateway.
+List registered channel backends and their connection status.
 
 ```bash
 jarvis channel list
-jarvis channel list --gateway ws://custom-host:9999/ws
 ```
-
-| Option                | Type   | Default | Description                          |
-|-----------------------|--------|---------|--------------------------------------|
-| `--gateway`           | string | config  | Override the gateway URL             |
 
 ### `jarvis channel send`
 
@@ -365,7 +360,7 @@ Send a message to a specific channel.
 
 ```bash
 jarvis channel send slack "Hello from Jarvis!"
-jarvis channel send discord "Build complete" --gateway ws://custom:9999/ws
+jarvis channel send discord "Build complete"
 ```
 
 | Argument    | Type   | Description                          |
@@ -373,25 +368,16 @@ jarvis channel send discord "Build complete" --gateway ws://custom:9999/ws
 | `TARGET`    | string | Channel name to send to              |
 | `MESSAGE`   | string | Message content                      |
 
-| Option                | Type   | Default | Description                          |
-|-----------------------|--------|---------|--------------------------------------|
-| `--gateway`           | string | config  | Override the gateway URL             |
-
 ### `jarvis channel status`
 
-Show the channel bridge connection status.
+Show connection status for configured channels.
 
 ```bash
 jarvis channel status
-jarvis channel status --gateway ws://custom:9999/ws
 ```
 
-| Option                | Type   | Default | Description                          |
-|-----------------------|--------|---------|--------------------------------------|
-| `--gateway`           | string | config  | Override the gateway URL             |
-
 !!! note "Channel Dependencies"
-    Channel commands require a running OpenClaw gateway. The bridge connects via WebSocket with HTTP fallback. Configure the gateway URL in `[channel]` config or via `--gateway`.
+    Each channel requires its platform-specific credentials (bot tokens, API keys) configured in the `[channel.<platform>]` section of your config. See [Configuration](../getting-started/configuration.md) for details.
 
 ---
 

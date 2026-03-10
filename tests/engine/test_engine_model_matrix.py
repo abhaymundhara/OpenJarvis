@@ -9,33 +9,68 @@ from openjarvis.core.registry import EngineRegistry
 from openjarvis.core.types import Message, Role
 from openjarvis.engine._base import EngineConnectionError
 from openjarvis.engine.ollama import OllamaEngine
-from openjarvis.engine.openai_compat_engines import VLLMEngine
+from openjarvis.engine.openai_compat_engines import (
+    AppleFmEngine,
+    ExoEngine,
+    LlamaCppEngine,
+    LMStudioEngine,
+    MLXEngine,
+    NexaEngine,
+    SGLangEngine,
+    UzuEngine,
+    VLLMEngine,
+)
+
+_OPENAI_COMPAT_ENGINES = [
+    ("vllm", "http://testhost:8000", VLLMEngine),
+    ("sglang", "http://testhost:30000", SGLangEngine),
+    ("llamacpp", "http://testhost:8080", LlamaCppEngine),
+    ("mlx", "http://testhost:8081", MLXEngine),
+    ("lmstudio", "http://testhost:1234", LMStudioEngine),
+    ("exo", "http://testhost:52415", ExoEngine),
+    ("nexa", "http://testhost:18181", NexaEngine),
+    ("uzu", "http://testhost:8082", UzuEngine),
+    ("apple_fm", "http://testhost:8079", AppleFmEngine),
+]
 
 ENGINES_AND_HOSTS = [
-    ("vllm", "http://testhost:8000"),
+    (key, host) for key, host, _ in _OPENAI_COMPAT_ENGINES
+] + [
     ("ollama", "http://testhost:11434"),
 ]
 
-MODELS = ["gpt-oss:120b", "qwen3:8b", "glm-4.7-flash", "trinity-mini"]
+MODELS = [
+    "gpt-oss:120b", "qwen3:8b", "glm-4.7-flash", "trinity-mini",
+    "qwen3.5:35b-a3b", "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+]
+
+_ENGINE_CLASSES = {key: cls for key, _, cls in _OPENAI_COMPAT_ENGINES}
+_ENGINE_CLASSES["ollama"] = OllamaEngine
 
 
 def _create_engine(engine_key: str, host: str):
     """Instantiate the right engine class for the given key."""
-    if engine_key == "vllm":
-        if not EngineRegistry.contains("vllm"):
-            EngineRegistry.register_value("vllm", VLLMEngine)
-        return VLLMEngine(host=host)
-    elif engine_key == "ollama":
-        if not EngineRegistry.contains("ollama"):
-            EngineRegistry.register_value("ollama", OllamaEngine)
-        return OllamaEngine(host=host)
-    else:
+    cls = _ENGINE_CLASSES.get(engine_key)
+    if cls is None:
         raise ValueError(f"Unknown engine: {engine_key}")
+    if not EngineRegistry.contains(engine_key):
+        EngineRegistry.register_value(engine_key, cls)
+    return cls(host=host)
 
 
 def _mock_simple_chat(respx_mock, engine_key: str, host: str, model: str):
     """Set up mock for a simple chat response."""
-    if engine_key == "vllm":
+    if engine_key == "ollama":
+        respx_mock.post(f"{host}/api/chat").mock(
+            return_value=httpx.Response(200, json={
+                "message": {"role": "assistant", "content": "Hello!"},
+                "model": model,
+                "prompt_eval_count": 10,
+                "eval_count": 5,
+                "done": True,
+            })
+        )
+    else:  # All OpenAI-compatible engines
         respx_mock.post(f"{host}/v1/chat/completions").mock(
             return_value=httpx.Response(200, json={
                 "choices": [
@@ -47,21 +82,26 @@ def _mock_simple_chat(respx_mock, engine_key: str, host: str, model: str):
                 "model": model,
             })
         )
-    elif engine_key == "ollama":
-        respx_mock.post(f"{host}/api/chat").mock(
-            return_value=httpx.Response(200, json={
-                "message": {"role": "assistant", "content": "Hello!"},
-                "model": model,
-                "prompt_eval_count": 10,
-                "eval_count": 5,
-                "done": True,
-            })
-        )
 
 
 def _mock_tool_call(respx_mock, engine_key: str, host: str, model: str):
     """Set up mock for a tool-call response."""
-    if engine_key == "vllm":
+    if engine_key == "ollama":
+        respx_mock.post(f"{host}/api/chat").mock(
+            return_value=httpx.Response(200, json={
+                "message": {
+                    "content": "",
+                    "tool_calls": [{
+                        "function": {"name": "calculator", "arguments": '{"x":1}'},
+                    }],
+                },
+                "model": model,
+                "prompt_eval_count": 10,
+                "eval_count": 8,
+                "done": True,
+            })
+        )
+    else:  # All OpenAI-compatible engines
         respx_mock.post(f"{host}/v1/chat/completions").mock(
             return_value=httpx.Response(200, json={
                 "choices": [{
@@ -81,31 +121,16 @@ def _mock_tool_call(respx_mock, engine_key: str, host: str, model: str):
                 "model": model,
             })
         )
-    elif engine_key == "ollama":
-        respx_mock.post(f"{host}/api/chat").mock(
-            return_value=httpx.Response(200, json={
-                "message": {
-                    "content": "",
-                    "tool_calls": [{
-                        "function": {"name": "calculator", "arguments": '{"x":1}'},
-                    }],
-                },
-                "model": model,
-                "prompt_eval_count": 10,
-                "eval_count": 8,
-                "done": True,
-            })
-        )
 
 
 def _mock_error(respx_mock, engine_key: str, host: str):
     """Set up mock for connection error."""
-    if engine_key == "vllm":
-        respx_mock.post(f"{host}/v1/chat/completions").mock(
+    if engine_key == "ollama":
+        respx_mock.post(f"{host}/api/chat").mock(
             side_effect=httpx.ConnectError("refused")
         )
-    elif engine_key == "ollama":
-        respx_mock.post(f"{host}/api/chat").mock(
+    else:  # All OpenAI-compatible engines
+        respx_mock.post(f"{host}/v1/chat/completions").mock(
             side_effect=httpx.ConnectError("refused")
         )
 
@@ -175,24 +200,24 @@ class TestEngineModelMatrix:
 class TestEngineHealth:
     def test_health_true(self, respx_mock, engine_key: str, host: str) -> None:
         engine = _create_engine(engine_key, host)
-        if engine_key == "vllm":
-            respx_mock.get(f"{host}/v1/models").mock(
-                return_value=httpx.Response(200, json={"data": []})
-            )
-        elif engine_key == "ollama":
+        if engine_key == "ollama":
             respx_mock.get(f"{host}/api/tags").mock(
                 return_value=httpx.Response(200, json={"models": []})
+            )
+        else:  # All OpenAI-compatible engines
+            respx_mock.get(f"{host}/v1/models").mock(
+                return_value=httpx.Response(200, json={"data": []})
             )
         assert engine.health() is True
 
     def test_health_false(self, respx_mock, engine_key: str, host: str) -> None:
         engine = _create_engine(engine_key, host)
-        if engine_key == "vllm":
-            respx_mock.get(f"{host}/v1/models").mock(
+        if engine_key == "ollama":
+            respx_mock.get(f"{host}/api/tags").mock(
                 side_effect=httpx.ConnectError("refused")
             )
-        elif engine_key == "ollama":
-            respx_mock.get(f"{host}/api/tags").mock(
+        else:  # All OpenAI-compatible engines
+            respx_mock.get(f"{host}/v1/models").mock(
                 side_effect=httpx.ConnectError("refused")
             )
         assert engine.health() is False

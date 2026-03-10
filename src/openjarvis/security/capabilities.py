@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class Capability(str, Enum):
@@ -61,11 +64,7 @@ class CapabilityPolicy:
 
         from openjarvis._rust_bridge import get_rust_module
         _rust = get_rust_module()
-        self._rust_impl = (
-            _rust.CapabilityPolicy(default_deny=default_deny)
-            if _rust
-            else None
-        )
+        self._rust_impl = _rust.CapabilityPolicy(default_deny=default_deny)
 
         if policy_path:
             self._load_file(Path(policy_path))
@@ -76,8 +75,7 @@ class CapabilityPolicy:
             agent_id, AgentPolicy(agent_id=agent_id),
         )
         policy.grants.append(CapabilityGrant(capability=capability, pattern=pattern))
-        if self._rust_impl is not None:
-            self._rust_impl.grant(agent_id, capability, pattern)
+        self._rust_impl.grant(agent_id, capability, pattern)
 
     def deny(self, agent_id: str, capability: str) -> None:
         """Explicitly deny a capability to an agent."""
@@ -85,16 +83,17 @@ class CapabilityPolicy:
             agent_id, AgentPolicy(agent_id=agent_id),
         )
         policy.deny.append(capability)
-        if self._rust_impl is not None:
-            self._rust_impl.deny(agent_id, capability)
+        self._rust_impl.deny(agent_id, capability)
 
     def check(self, agent_id: str, capability: str, resource: str = "") -> bool:
         """Check whether *agent_id* has *capability* for *resource*.
 
         Returns True if allowed, False if denied.
         """
-        if self._rust_impl is not None:
-            return self._rust_impl.check(agent_id, capability, resource)
+        return self._rust_impl.check(agent_id, capability, resource)
+
+    def _check_python(self, agent_id: str, capability: str, resource: str = "") -> bool:
+        """Legacy Python check — kept for reference only."""
         policy = self._policies.get(agent_id)
         if policy is None:
             # No explicit policy — use default
@@ -142,8 +141,8 @@ class CapabilityPolicy:
                     )
                 for denied in agent_data.get("deny", []):
                     self.deny(agent_id, denied)
-        except (json.JSONDecodeError, KeyError, TypeError):
-            pass
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            logger.warning("Failed to parse capability policy: %s", exc)
 
     def save(self, path: Path) -> None:
         """Save policy to a JSON file."""

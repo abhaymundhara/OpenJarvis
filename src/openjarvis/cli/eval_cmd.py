@@ -34,6 +34,26 @@ KNOWN_BENCHMARKS = {
         "category": "agentic",
         "description": "TerminalBench Native (Docker)",
     },
+    "email_triage": {
+        "category": "use-case",
+        "description": "Email triage classification + draft",
+    },
+    "morning_brief": {
+        "category": "use-case",
+        "description": "Morning briefing generation",
+    },
+    "research_mining": {
+        "category": "use-case",
+        "description": "Research synthesis + accuracy",
+    },
+    "knowledge_base": {
+        "category": "use-case",
+        "description": "Document-grounded retrieval QA",
+    },
+    "coding_task": {
+        "category": "use-case",
+        "description": "Function-level code generation",
+    },
 }
 
 KNOWN_BACKENDS = {
@@ -102,12 +122,36 @@ def eval_list() -> None:
     help="Agent name for jarvis-agent backend.",
 )
 @click.option(
+    "-e", "--engine", "engine_key", default=None,
+    help="Engine key (ollama, vllm, cloud, ...).",
+)
+@click.option(
     "--tools", "tools", default="",
     help="Comma-separated tool names.",
 )
 @click.option(
     "--telemetry/--no-telemetry", "telemetry", default=False,
     help="Enable telemetry collection during eval.",
+)
+@click.option(
+    "--gpu-metrics/--no-gpu-metrics", "gpu_metrics", default=False,
+    help="Enable GPU metrics collection.",
+)
+@click.option(
+    "--seed", "seed", type=int, default=42,
+    help="Random seed.",
+)
+@click.option(
+    "--temperature", "temperature", type=float, default=0.0,
+    help="Generation temperature.",
+)
+@click.option(
+    "--max-tokens", "max_tokens", type=int, default=2048,
+    help="Max output tokens.",
+)
+@click.option(
+    "--model-filter", "model_filter", default=None,
+    help="Filter models by name substring (for multi-model configs).",
 )
 @click.option(
     "-o", "--output", "output_path", default=None, type=click.Path(),
@@ -152,8 +196,14 @@ def eval_run(
     max_samples: Optional[int],
     backend: str,
     agent_name: Optional[str],
+    engine_key: Optional[str],
     tools: str,
     telemetry: bool,
+    gpu_metrics: bool,
+    seed: int,
+    temperature: float,
+    max_tokens: int,
+    model_filter: Optional[str],
     output_path: Optional[str],
     wandb_project: str,
     wandb_entity: str,
@@ -184,6 +234,17 @@ def eval_run(
         except Exception as exc:
             console.print(f"[red]Error loading config: {exc}[/red]")
             sys.exit(1)
+
+        # Filter by model name substring if requested
+        if model_filter:
+            run_configs = [
+                rc for rc in run_configs if model_filter in rc.model
+            ]
+            if not run_configs:
+                console.print(
+                    f"[red]No models match filter '{model_filter}'[/red]"
+                )
+                sys.exit(1)
 
         console.print(
             f"[cyan]Suite:[/cyan] {suite.meta.name or Path(config_path).stem}"
@@ -248,9 +309,14 @@ def eval_run(
         model=model,
         max_samples=max_samples,
         agent_name=agent_name,
+        engine_key=engine_key,
         tools=tool_list,
         output_path=output_path,
+        seed=seed,
+        temperature=temperature,
+        max_tokens=max_tokens,
         telemetry=telemetry,
+        gpu_metrics=gpu_metrics,
         wandb_project=wandb_project,
         wandb_entity=wandb_entity,
         wandb_tags=wandb_tags,

@@ -722,7 +722,7 @@ async def list_optimize_runs(request: Request):
     """List optimization runs."""
     try:
         from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.optimize.store import OptimizationStore
+        from openjarvis.learning.optimize.store import OptimizationStore
 
         db_path = DEFAULT_CONFIG_DIR / "optimize.db"
         if not db_path.exists():
@@ -741,7 +741,7 @@ async def get_optimize_run(run_id: str, request: Request):
     """Get optimization run details."""
     try:
         from openjarvis.core.config import DEFAULT_CONFIG_DIR
-        from openjarvis.optimize.store import OptimizationStore
+        from openjarvis.learning.optimize.store import OptimizationStore
 
         db_path = DEFAULT_CONFIG_DIR / "optimize.db"
         if not db_path.exists():

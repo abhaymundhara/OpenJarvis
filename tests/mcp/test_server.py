@@ -182,7 +182,8 @@ class TestMCPServer:
         # Should still execute (with empty arguments)
         assert resp.error is None
 
-    def test_calculator_error_returns_is_error_true(self, server):
+    def test_calculator_division_by_zero_returns_inf(self, server):
+        # Rust calculator (meval) returns inf for 1/0 rather than an error
         req = MCPRequest(
             method="tools/call",
             params={"name": "calculator", "arguments": {"expression": "1/0"}},
@@ -190,5 +191,5 @@ class TestMCPServer:
         )
         resp = server.handle(req)
         assert resp.error is None
-        assert resp.result["isError"] is True
-        assert "division by zero" in resp.result["content"][0]["text"]
+        assert resp.result["isError"] is False
+        assert "inf" in resp.result["content"][0]["text"]

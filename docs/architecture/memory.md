@@ -1,6 +1,6 @@
-# Memory Pillar
+# Memory Primitive
 
-The Memory pillar provides **persistent, searchable storage** for documents and knowledge. It enables context injection -- retrieving relevant information from indexed documents and prepending it to prompts so the LLM can answer questions grounded in specific content.
+The Memory primitive provides **persistent, searchable storage** for documents and knowledge. It enables context injection -- retrieving relevant information from indexed documents and prepending it to prompts so the LLM can answer questions grounded in specific content.
 
 ---
 

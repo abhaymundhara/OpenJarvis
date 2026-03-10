@@ -31,14 +31,74 @@ This installs the `openjarvis-eval` CLI entry point and all required dependencie
 
 ## Datasets
 
-The framework ships with four datasets covering different capability dimensions:
+The framework ships with **30+ datasets** covering academic reasoning, agentic tasks, retrieval, conversation quality, and practical use-case benchmarks. Datasets are grouped by category below.
 
-| Dataset | Key | Category | HuggingFace Path | Default Split |
-|---------|-----|----------|------------------|---------------|
-| **SuperGPQA** | `supergpqa` | reasoning | `m-a-p/SuperGPQA` | `train` |
-| **GAIA** | `gaia` | agentic | `gaia-benchmark/GAIA` | `validation` |
-| **FRAMES** | `frames` | rag | `google/frames-benchmark` | `test` |
-| **WildChat** | `wildchat` | chat | `allenai/WildChat-1M` | `train` |
+### Use-Case Benchmarks
+
+These benchmarks evaluate models on practical tasks that mirror real OpenJarvis use cases.
+
+| Dataset | Key | Description |
+|---------|-----|-------------|
+| **CodingAssistant** | `coding_assistant` | Bug-fix coding assistant (test-based) |
+| **SecurityScanner** | `security_scanner` | Security vulnerability scanner |
+| **DailyDigest** | `daily_digest` | Daily briefing generation |
+| **DocQA** | `doc_qa` | Document-grounded QA with citations |
+| **BrowserAssistant** | `browser_assistant` | Web research with fact verification |
+| **EmailTriage** | `email_triage` | Email triage classification + draft |
+| **MorningBrief** | `morning_brief` | Morning briefing generation |
+| **ResearchMining** | `research_mining` | Research synthesis + accuracy |
+| **KnowledgeBase** | `knowledge_base` | Document-grounded retrieval QA |
+| **CodingTask** | `coding_task` | Function-level code generation |
+
+### Academic Benchmarks
+
+These benchmarks measure reasoning and knowledge on established academic datasets.
+
+| Dataset | Key | Category | Description |
+|---------|-----|----------|-------------|
+| **SuperGPQA** | `supergpqa` | reasoning | Graduate-level multiple-choice across scientific disciplines |
+| **GPQA** | `gpqa` | reasoning | Graduate-level MCQ (Diamond, Extended, Main variants) |
+| **MMLU-Pro** | `mmlu-pro` | reasoning | Enhanced MMLU multiple-choice |
+| **MATH-500** | `math500` | reasoning | Competition-level math problems |
+| **NaturalReasoning** | `natural-reasoning` | reasoning | Natural language reasoning |
+| **HLE** | `hle` | reasoning | Humanity's Last Exam hard challenges |
+| **SimpleQA** | `simpleqa` | chat | Short-form factual question answering |
+| **IPW** | `ipw` | chat | Intelligence Per Watt mixed benchmark |
+
+### Agent Benchmarks
+
+These benchmarks test multi-step agent capabilities including tool use, code generation, and long-horizon planning.
+
+| Dataset | Key | Category | Description |
+|---------|-----|----------|-------------|
+| **GAIA** | `gaia` | agentic | Multi-step tasks with file I/O, calculations, web lookup |
+| **SWE-bench** | `swebench` | agentic | Real-world GitHub code patches |
+| **SWEfficiency** | `swefficiency` | agentic | Software optimization tasks |
+| **TerminalBench** | `terminalbench` | agentic | Terminal-based task completion |
+| **TerminalBench Native** | `terminalbench-native` | agentic | TerminalBench with native Docker execution |
+| **LifelongAgent** | `lifelong-agent` | agentic | Sequential task learning across sessions |
+| **PaperArena** | `paperarena` | agentic | Scientific paper analysis |
+| **DeepPlanning** | `deepplanning` | agentic | Shopping constraint planning |
+| **LogHub** | `loghub` | agentic | Log anomaly detection |
+| **AMA-Bench** | `ama-bench` | agentic | Agent memory assessment |
+| **WebChoreArena** | `webchorearena` | agentic | Web chore tasks |
+| **WorkArena** | `workarena` | agentic | WorkArena++ enterprise workflows |
+
+### Retrieval Benchmarks
+
+| Dataset | Key | Category | Description |
+|---------|-----|----------|-------------|
+| **FRAMES** | `frames` | rag | Multi-hop factual retrieval across Wikipedia articles |
+
+### Conversation Benchmarks
+
+| Dataset | Key | Category | Description |
+|---------|-----|----------|-------------|
+| **WildChat** | `wildchat` | chat | Real user conversation quality (pairwise LLM judge) |
+
+---
+
+### Dataset Details
 
 **SuperGPQA** is a large-scale multiple-choice benchmark spanning graduate-level questions across scientific disciplines. Each sample has a question, a set of lettered options, and a reference answer letter.
 
@@ -50,6 +110,31 @@ The framework ships with four datasets covering different capability dimensions:
 
 !!! tip "GAIA dataset access"
     The GAIA dataset requires a HuggingFace account and acceptance of the dataset's terms of use. The loader downloads the full dataset snapshot on first use and caches it at `~/.cache/gaia_benchmark/`. Subsequent runs use the local cache.
+
+---
+
+## Use-Case Eval Configs
+
+The framework includes two pre-built configs for evaluating models on the five core use-case benchmarks (coding_assistant, security_scanner, daily_digest, doc_qa, browser_assistant).
+
+### Cloud models
+
+```bash
+uv run python -m openjarvis.evals --config src/openjarvis/evals/configs/use_case_v2_cloud.toml
+```
+
+This config evaluates **6 cloud models** (Claude Opus 4.6, Claude Haiku 4.5, Gemini 3.1 Pro, Gemini 3.1 Flash Lite, GPT-5.4, GPT-5 Mini) against all 5 use-case benchmarks with 30 samples each, producing a 6x5 = 30-run matrix. Results are written to `results/use-cases-v2-cloud/`.
+
+### Local models
+
+```bash
+uv run python -m openjarvis.evals --config src/openjarvis/evals/configs/use_case_v2_local.toml
+```
+
+This config evaluates **5 local models** via Ollama (Qwen3.5 122B-A10B, GPT-OSS 120B, GLM4, Qwen3.5 35B-A3B, GLM-4.7-Flash) against the same 5 benchmarks, producing a 5x5 = 25-run matrix. Uses 2 workers (suitable for single-GPU setups). Results are written to `results/use-cases-v2-local/`.
+
+!!! tip "Customizing use-case evals"
+    Copy one of the `use_case_v2_*.toml` configs and modify the `[[models]]` entries to evaluate your own models. The five use-case benchmarks use synthetic datasets (no HuggingFace download required) and run quickly with 30 samples each.
 
 ---
 

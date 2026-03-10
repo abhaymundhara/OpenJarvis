@@ -8,9 +8,26 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence
 
 from openjarvis.core.types import Message
+
+
+@dataclass(slots=True)
+class ResponseFormat:
+    """Structured output configuration for inference engines.
+
+    Attributes:
+        type: The response format type. ``"json_object"`` enables JSON mode
+            (the model returns valid JSON). ``"json_schema"`` enables structured
+            output constrained to a specific JSON Schema.
+        schema: A JSON Schema dict used when *type* is ``"json_schema"``.
+            Ignored for ``"json_object"`` mode.
+    """
+
+    type: str = "json_object"
+    schema: Optional[Dict[str, Any]] = field(default=None)
 
 
 class InferenceEngine(ABC):
@@ -63,4 +80,4 @@ class InferenceEngine(ABC):
         """Optional warm-up hook called before the first request."""
 
 
-__all__ = ["InferenceEngine"]
+__all__ = ["InferenceEngine", "ResponseFormat"]

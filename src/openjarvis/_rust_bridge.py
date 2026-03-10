@@ -1,48 +1,38 @@
 """Single point of contact between Python and the Rust ``openjarvis_rust`` module.
 
 Every Python module that wants to delegate to Rust should import helpers from
-here rather than importing ``openjarvis_rust`` directly.  This keeps the
-try/except logic in one place, honours the ``OPENJARVIS_NO_RUST`` env-var
-override, and provides JSON-to-dataclass converters.
+here rather than importing ``openjarvis_rust`` directly.  The Rust backend is
+mandatory — if it cannot be imported, a hard ``ImportError`` is raised.
 """
 
 from __future__ import annotations
 
 import functools
 import json
-import os
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     import types as _types
 
 # ---------------------------------------------------------------------------
-# Cached import
+# Mandatory import — Rust backend is required
 # ---------------------------------------------------------------------------
 
 
 @functools.lru_cache(maxsize=1)
-def get_rust_module() -> Optional[_types.ModuleType]:
-    """Return the ``openjarvis_rust`` module, or ``None`` if unavailable.
+def get_rust_module() -> _types.ModuleType:
+    """Return the ``openjarvis_rust`` module.
 
-    Setting ``OPENJARVIS_NO_RUST=1`` forces pure-Python mode regardless of
-    whether the compiled extension is importable.
+    Raises ``ImportError`` if the compiled extension is not available.
+    The Rust backend is mandatory for all modules that have Rust
+    implementations — there is no Python fallback.
     """
-    if os.environ.get("OPENJARVIS_NO_RUST", "").strip() in (
-        "1",
-        "true",
-        "yes",
-    ):
-        return None
-    try:
-        import openjarvis_rust  # type: ignore[import-untyped]
+    import openjarvis_rust  # type: ignore[import-untyped]
 
-        return openjarvis_rust
-    except ImportError:
-        return None
+    return openjarvis_rust
 
 
-RUST_AVAILABLE: bool = get_rust_module() is not None
+RUST_AVAILABLE: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -136,10 +126,55 @@ def retrieval_results_from_json(json_str: str) -> list:
     return results
 
 
+# ---------------------------------------------------------------------------
+# Phase 2 converters — optimization & engine types
+# ---------------------------------------------------------------------------
+
+
+def optimization_store_from_rust(path: str = ":memory:") -> object | None:
+    """Get a Rust-backed OptimizationStore, or None if Rust unavailable."""
+    mod = get_rust_module()
+    if mod is None:
+        return None
+    try:
+        return mod.OptimizationStore(path)
+    except Exception:
+        return None
+
+
+def trial_result_from_json(json_str: str) -> dict:
+    """Convert Rust TrialResult JSON to a Python dict."""
+    return json.loads(json_str)
+
+
+def optimization_run_from_json(json_str: str) -> dict:
+    """Convert Rust OptimizationRun JSON to a Python dict."""
+    return json.loads(json_str)
+
+
+def generate_result_from_json(json_str: str) -> dict:
+    """Convert Rust GenerateResult JSON to a Python dict."""
+    data = json.loads(json_str)
+    return {
+        "content": data.get("content", ""),
+        "model": data.get("model", ""),
+        "finish_reason": data.get("finish_reason", "stop"),
+        "usage": data.get("usage", {}),
+        "tool_calls": data.get("tool_calls"),
+        "ttft": data.get("ttft", 0.0),
+        "cost_usd": data.get("cost_usd", 0.0),
+        "metadata": data.get("metadata", {}),
+    }
+
+
 __all__ = [
     "RUST_AVAILABLE",
+    "generate_result_from_json",
     "get_rust_module",
     "injection_result_from_json",
+    "optimization_run_from_json",
+    "optimization_store_from_rust",
     "retrieval_results_from_json",
     "scan_result_from_json",
+    "trial_result_from_json",
 ]

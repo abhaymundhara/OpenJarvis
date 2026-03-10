@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import statistics
 import time
 from typing import Any, List
@@ -10,6 +11,8 @@ from openjarvis.bench._stubs import BaseBenchmark, BenchmarkResult
 from openjarvis.core.registry import BenchmarkRegistry
 from openjarvis.core.types import Message, Role
 from openjarvis.engine._stubs import InferenceEngine
+
+logger = logging.getLogger(__name__)
 
 _CANNED_PROMPTS = [
     "Hello",
@@ -44,8 +47,8 @@ class LatencyBenchmark(BaseBenchmark):
             messages = [Message(role=Role.USER, content=prompt)]
             try:
                 engine.generate(messages, model=model)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Warmup request failed: %s", exc)
 
         latencies: List[float] = []
         errors = 0
@@ -57,7 +60,8 @@ class LatencyBenchmark(BaseBenchmark):
             try:
                 engine.generate(messages, model=model)
                 latencies.append(time.time() - t0)
-            except Exception:
+            except Exception as exc:
+                logger.debug("Measurement request failed: %s", exc)
                 errors += 1
 
         if not latencies:

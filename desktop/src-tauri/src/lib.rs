@@ -405,6 +405,15 @@ async fn run_jarvis_command(args: Vec<String>) -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+async fn fetch_savings(api_url: String) -> Result<serde_json::Value, String> {
+    let base = if api_url.is_empty() { api_base() } else { api_url };
+    let resp = reqwest::get(format!("{}/v1/savings", base))
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+    resp.json().await.map_err(|e| format!("Invalid response: {}", e))
+}
+
 /// Transcribe audio via the speech API endpoint.
 #[tauri::command]
 async fn transcribe_audio(
@@ -541,6 +550,7 @@ pub fn run() {
             fetch_agents,
             fetch_models,
             run_jarvis_command,
+            fetch_savings,
             transcribe_audio,
             speech_health,
         ])

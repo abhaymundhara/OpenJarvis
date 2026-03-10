@@ -12,8 +12,9 @@ Agents are the agentic logic layer of OpenJarvis. They determine how a query is 
 | `NativeOpenHandsAgent` | `native_openhands` | Yes          | Yes        | CodeAct-style code execution + tool calls    |
 | `RLMAgent`          | `rlm`             | Yes             | Yes        | Recursive LM with persistent REPL            |
 | `OpenHandsAgent`    | `openhands`       | No              | Yes        | Wraps real openhands-sdk                     |
-| `OpenClawAgent`     | `openclaw`        | Yes             | Yes        | External agent via HTTP or subprocess         |
 | `ClaudeCodeAgent`   | `claude_code`     | No              | Yes        | Claude Agent SDK via Node.js subprocess       |
+| `OperativeAgent`    | `operative`       | Yes             | Yes        | Persistent scheduled agent with state management |
+| `MonitorOperativeAgent` | `monitor_operative` | Yes        | Yes        | Long-horizon agent with 4 configurable strategy axes |
 
 ---
 
@@ -259,38 +260,6 @@ The `OpenHandsAgent` wraps the real `openhands-sdk` package for AI-driven softwa
 
 ---
 
-## OpenClawAgent
-
-The `OpenClawAgent` wraps the OpenClaw Pi agent runtime, communicating via either HTTP or subprocess transport. It supports tool calling through the OpenClaw protocol.
-
-**How it works:**
-
-1. Checks transport health.
-2. Sends a `QUERY` protocol message through the transport.
-3. If the response is a `TOOL_CALL`, dispatches the tool locally via `ToolExecutor`.
-4. Sends the tool result back as a `TOOL_RESULT` message.
-5. Continues the tool-call loop until the response is a final answer or error (up to 10 turns).
-
-**Constructor parameters:**
-
-| Parameter    | Type                 | Default   | Description                               |
-|--------------|----------------------|-----------|-------------------------------------------|
-| `engine`     | `Any`                | `None`    | Inference engine (fallback/provider)       |
-| `model`      | `str`                | `""`      | Model identifier                          |
-| `transport`  | `OpenClawTransport`  | `None`    | Pre-configured transport (overrides mode)  |
-| `mode`       | `str`                | `"http"`  | Transport mode: `"http"` or `"subprocess"` |
-| `bus`        | `EventBus`           | `None`    | Event bus for telemetry                   |
-
-**Transport modes:**
-
-- **HTTP** (`HttpTransport`): Sends HTTP POST requests to an OpenClaw server.
-- **Subprocess** (`SubprocessTransport`): Spawns a Node.js process and communicates via stdin/stdout using JSON-line protocol.
-
-!!! warning "Node.js Requirement"
-    The subprocess transport mode requires Node.js 22+ to be installed on the system.
-
----
-
 ## Using Agents
 
 ### Via CLI
@@ -316,9 +285,6 @@ jarvis ask --agent rlm "Summarize this long document"
 
 # OpenHands SDK agent
 jarvis ask --agent openhands "Fix the bug in test_utils.py"
-
-# OpenClaw agent
-jarvis ask --agent openclaw "Tell me a story"
 ```
 
 ### Via Python SDK
@@ -419,6 +385,129 @@ jarvis ask --agent claude_code "Refactor the tests to use pytest fixtures"
 
 ---
 
+## OperativeAgent
+
+The `OperativeAgent` is a persistent, scheduled autonomous agent with built-in session persistence and state recall. Designed for "Operators" -- autonomous agents that run on a schedule with automatic state management between ticks. Extends `ToolUsingAgent`.
+
+**How it works:**
+
+1. **Session loading** -- restores conversation history from previous ticks via the session store.
+2. **State recall** -- retrieves previous state JSON from the memory backend.
+3. **System prompt injection** -- injects the operator's protocol instructions.
+4. **Tool loop** -- standard function-calling loop (same as OrchestratorAgent).
+5. **Session save** -- persists the tick's prompt and response to the session store.
+6. **State persistence** -- auto-persists state if the agent did not explicitly store it via the `memory_store` tool.
+
+**Constructor parameters:**
+
+| Parameter        | Type              | Default | Description                                      |
+|------------------|-------------------|---------|--------------------------------------------------|
+| `engine`         | `InferenceEngine` | --      | The inference engine to use                      |
+| `model`          | `str`             | --      | Model identifier                                 |
+| `tools`          | `list[BaseTool]`  | `[]`    | Tool instances to make available                 |
+| `bus`            | `EventBus`        | `None`  | Event bus for telemetry                          |
+| `max_turns`      | `int`             | `20`    | Maximum number of tool-calling turns             |
+| `temperature`    | `float`           | `0.3`   | Sampling temperature                             |
+| `max_tokens`     | `int`             | `2048`  | Maximum tokens to generate                       |
+| `system_prompt`  | `str`             | `None`  | Custom system prompt for the operator            |
+| `operator_id`    | `str`             | `None`  | Unique ID for session and state persistence      |
+| `session_store`  | `Any`             | `None`  | Session store backend for conversation history   |
+| `memory_backend` | `Any`             | `None`  | Memory backend for state recall and persistence  |
+
+**When to use:** For autonomous agents that run on a schedule (e.g., via `TaskScheduler`) and need to maintain state between invocations. The agent automatically manages session history and state persistence across ticks.
+
+```python
+from openjarvis.agents.operative import OperativeAgent
+
+agent = OperativeAgent(
+    engine,
+    model="qwen3:8b",
+    tools=[...],
+    operator_id="daily-report",
+    session_store=session_store,
+    memory_backend=memory_backend,
+    system_prompt="You are a daily report agent. Gather and summarize news.",
+)
+result = agent.run("Generate today's report")
+```
+
+```bash
+# Via CLI
+jarvis ask --agent operative "Check system status"
+```
+
+---
+
+## MonitorOperativeAgent
+
+The `MonitorOperativeAgent` is a long-horizon agent with four configurable strategy axes for managing information across turns and sessions. It extends `ToolUsingAgent` with strategy-driven observation compression, memory extraction, retrieval, and task decomposition. It also inherits cross-session state persistence from the OperativeAgent pattern.
+
+**Strategy axes:**
+
+| Axis | Valid Values | Default | Description |
+|------|-------------|---------|-------------|
+| `memory_extraction` | `causality_graph`, `scratchpad`, `structured_json`, `none` | `causality_graph` | How findings are persisted to memory |
+| `observation_compression` | `summarize`, `truncate`, `none` | `summarize` | How tool outputs are compressed before being added to context |
+| `retrieval_strategy` | `hybrid_with_self_eval`, `keyword`, `semantic`, `none` | `hybrid_with_self_eval` | How prior context is recalled at the start of each run |
+| `task_decomposition` | `phased`, `monolithic`, `hierarchical` | `phased` | How complex tasks are broken down |
+
+**How it works:**
+
+1. Builds a system prompt with strategy configuration and tool descriptions.
+2. Recalls previous state from the memory backend.
+3. Loads session history from previous ticks.
+4. Runs a function-calling tool loop, applying the configured strategies:
+    - **Observation compression**: Long tool outputs are summarized (via LLM) or truncated before being added to the message context.
+    - **Memory extraction**: After each tool call, findings are extracted and stored according to the memory strategy (causal relationships, scratchpad notes, or structured JSON).
+5. Saves the session and auto-persists state.
+
+**Constructor parameters:**
+
+| Parameter                | Type              | Default                   | Description                                      |
+|--------------------------|-------------------|---------------------------|--------------------------------------------------|
+| `engine`                 | `InferenceEngine` | --                        | The inference engine to use                      |
+| `model`                  | `str`             | --                        | Model identifier                                 |
+| `tools`                  | `list[BaseTool]`  | `[]`                      | Tool instances to make available                 |
+| `bus`                    | `EventBus`        | `None`                    | Event bus for telemetry                          |
+| `max_turns`              | `int`             | `25`                      | Maximum number of tool-calling turns             |
+| `temperature`            | `float`           | `0.3`                     | Sampling temperature                             |
+| `max_tokens`             | `int`             | `4096`                    | Maximum tokens to generate                       |
+| `system_prompt`          | `str`             | `None`                    | Custom system prompt (overrides default)         |
+| `memory_extraction`      | `str`             | `"causality_graph"`       | Memory extraction strategy                       |
+| `observation_compression`| `str`             | `"summarize"`             | Observation compression strategy                 |
+| `retrieval_strategy`     | `str`             | `"hybrid_with_self_eval"` | Retrieval strategy                               |
+| `task_decomposition`     | `str`             | `"phased"`                | Task decomposition strategy                      |
+| `operator_id`            | `str`             | `None`                    | Unique ID for session and state persistence      |
+| `session_store`          | `Any`             | `None`                    | Session store backend for conversation history   |
+| `memory_backend`         | `Any`             | `None`                    | Memory backend for state and finding persistence |
+
+**When to use:** For long-horizon benchmark evaluation and complex multi-step tasks that benefit from configurable strategies for memory management, context compression, and task decomposition. Particularly useful for benchmarks like GAIA, FRAMES, and LifelongAgent where strategy selection impacts performance.
+
+```python
+from openjarvis.agents.monitor_operative import MonitorOperativeAgent
+
+agent = MonitorOperativeAgent(
+    engine,
+    model="qwen3:8b",
+    tools=[...],
+    operator_id="research-agent",
+    memory_extraction="causality_graph",
+    observation_compression="summarize",
+    retrieval_strategy="hybrid_with_self_eval",
+    task_decomposition="phased",
+    session_store=session_store,
+    memory_backend=memory_backend,
+)
+result = agent.run("Investigate the root cause of the production outage")
+```
+
+```bash
+# Via CLI
+jarvis ask --agent monitor_operative "Analyze the security audit findings"
+```
+
+---
+
 ## SandboxedAgent
 
 `SandboxedAgent` is a transparent wrapper that runs **any** `BaseAgent` inside a Docker (or Podman) container. It follows the same wrapper pattern as `GuardrailsEngine` -- the inner agent's configuration is serialized and sent to the container's stdin, and the result is read back from stdout.
@@ -514,7 +603,7 @@ agent_cls = AgentRegistry.get("orchestrator")
 # List all registered agent keys
 AgentRegistry.keys()
 # ["simple", "orchestrator", "native_react", "react", "native_openhands",
-#  "rlm", "openhands", "claude_code"]
+#  "rlm", "openhands", "claude_code", "operative", "monitor_operative"]
 ```
 
 ---
@@ -544,9 +633,6 @@ jarvis ask --agent rlm "Summarize this long document"
 
 # OpenHands SDK agent
 jarvis ask --agent openhands "Fix the bug in test_utils.py"
-
-# OpenClaw agent
-jarvis ask --agent openclaw "Tell me a story"
 
 # Claude Code agent (requires Node.js 22+ and ANTHROPIC_API_KEY)
 jarvis ask --agent claude_code "Add docstrings to all functions in utils.py"

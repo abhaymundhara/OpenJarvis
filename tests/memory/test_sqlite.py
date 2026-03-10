@@ -25,11 +25,9 @@ def test_registration_in_memory_registry():
 
 def test_creates_tables_on_init(tmp_path: Path):
     backend = _make_backend(tmp_path)
-    # Check that the documents table exists
-    row = backend._conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
-    ).fetchone()
-    assert row is not None
+    # Rust manages the DB internally (_conn is None), so verify via public API:
+    # a freshly created backend should report zero documents.
+    assert backend.count() == 0
     backend.close()
 
 
@@ -37,7 +35,7 @@ def test_store_returns_uuid(tmp_path: Path):
     backend = _make_backend(tmp_path)
     doc_id = backend.store("hello world")
     assert isinstance(doc_id, str)
-    assert len(doc_id) == 32  # hex UUID
+    assert len(doc_id) == 36  # Rust Uuid::new_v4().to_string() includes hyphens
     backend.close()
 
 

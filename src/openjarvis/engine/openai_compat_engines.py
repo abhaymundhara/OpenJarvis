@@ -9,6 +9,10 @@ _ENGINES = {
     "llamacpp": ("LlamaCppEngine", "http://localhost:8080"),
     "mlx": ("MLXEngine", "http://localhost:8080"),
     "lmstudio": ("LMStudioEngine", "http://localhost:1234"),
+    "exo": ("ExoEngine", "http://localhost:52415"),
+    "nexa": ("NexaEngine", "http://localhost:18181"),
+    "uzu": ("UzuEngine", "http://localhost:8080"),
+    "apple_fm": ("AppleFmEngine", "http://localhost:8079"),
 }
 
 for _key, (_cls_name, _default_host) in _ENGINES.items():

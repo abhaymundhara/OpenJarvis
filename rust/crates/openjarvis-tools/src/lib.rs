@@ -1,4 +1,4 @@
-//! Tools pillar — BaseTool trait, ToolExecutor, built-in tools, storage backends.
+//! Tools primitive — BaseTool trait, ToolExecutor, built-in tools, storage backends.
 
 pub mod builtin;
 pub mod executor;

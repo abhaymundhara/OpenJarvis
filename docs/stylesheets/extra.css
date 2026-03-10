@@ -1,8 +1,6 @@
 /* ── Fonts ─────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400;1,700&family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  --md-text-font: "Merriweather", Georgia, "Times New Roman", serif;
+  --md-text-font: Georgia, "Times New Roman", serif;
   --md-code-font: "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 }
 
@@ -52,12 +50,12 @@
 .md-footer,
 .md-search__input,
 .md-source {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
 }
 
 .md-nav__link,
 .md-tabs__link {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
   font-size: 0.8rem;
   letter-spacing: 0.01em;
@@ -76,6 +74,10 @@
 .md-typeset h1 em {
   font-style: italic;
   color: var(--md-accent-fg-color);
+}
+
+.md-typeset h1 .headerlink {
+  display: none;
 }
 
 .hero-tagline {
@@ -167,7 +169,7 @@
 
 .md-typeset .grid.cards > ol > li > :first-child,
 .md-typeset .grid.cards > ul > li > :first-child {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 600;
   font-size: 0.92rem;
   letter-spacing: -0.01em;
@@ -195,7 +197,7 @@
 
 /* ── Tabs ─────────────────────────────────────────────────────────── */
 .md-typeset .tabbed-labels > label {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
   font-size: 0.82rem;
   letter-spacing: 0.01em;
@@ -203,7 +205,7 @@
 
 /* ── Buttons (clean, bordered like OA) ───────────────────────────── */
 .md-typeset .md-button {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 500;
   font-size: 0.85rem;
   border-radius: 6px;
@@ -257,7 +259,7 @@
   display: inline-block;
   padding: 0.2rem 0.7rem;
   border-radius: 100px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -314,7 +316,7 @@
 }
 
 .md-typeset table:not([class]) th {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Georgia, "Times New Roman", serif;
   font-weight: 600;
   font-size: 0.78rem;
   text-transform: uppercase;

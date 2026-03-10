@@ -2,7 +2,7 @@
 
 use crate::scanner::{PIIScanner, SecretScanner};
 use crate::types::{RedactionMode, ScanResult};
-use openjarvis_core::error::{EngineError, OpenJarvisError};
+use openjarvis_core::error::OpenJarvisError;
 use openjarvis_core::{EventBus, EventType, GenerateResult, Message};
 use openjarvis_engine::traits::{InferenceEngine, TokenStream};
 use serde_json::Value;

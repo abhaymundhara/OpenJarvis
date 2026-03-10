@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Tuple
 
 from openjarvis.core.config import JarvisConfig
 from openjarvis.core.registry import EngineRegistry
 from openjarvis.engine._base import InferenceEngine
+
+logger = logging.getLogger(__name__)
 
 # Map registry keys to config host attribute (None = no host arg)
 _HOST_MAP: Dict[str, str | None] = {
@@ -16,6 +19,10 @@ _HOST_MAP: Dict[str, str | None] = {
     "sglang": "sglang_host",
     "mlx": "mlx_host",
     "lmstudio": "lmstudio_host",
+    "exo": "exo_host",
+    "nexa": "nexa_host",
+    "uzu": "uzu_host",
+    "apple_fm": "apple_fm_host",
     "cloud": None,
     "litellm": None,
 }
@@ -43,7 +50,8 @@ def discover_engines(config: JarvisConfig) -> List[Tuple[str, InferenceEngine]]:
             engine = _make_engine(key, config)
             if engine.health():
                 healthy.append((key, engine))
-        except Exception:
+        except Exception as exc:
+            logger.debug("Engine %r failed during discovery: %s", key, exc)
             continue
 
     default_key = config.engine.default
@@ -63,7 +71,8 @@ def discover_models(
     for key, engine in engines:
         try:
             result[key] = engine.list_models()
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to list models for engine %r: %s", key, exc)
             result[key] = []
     return result
 
@@ -81,8 +90,8 @@ def get_engine(
                 engine = _make_engine(engine_key, config)
                 if engine.health():
                     return (engine_key, engine)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Engine %r health check failed: %s", engine_key, exc)
         return None
 
     # Try default first
@@ -92,8 +101,8 @@ def get_engine(
             engine = _make_engine(default_key, config)
             if engine.health():
                 return (default_key, engine)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Default engine %r health check failed: %s", default_key, exc)
 
     # Fallback to any healthy engine
     healthy = discover_engines(config)

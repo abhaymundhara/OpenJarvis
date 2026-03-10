@@ -1,60 +1,89 @@
 # Channels
 
-The channels module lets OpenJarvis send and receive messages through external messaging gateways. The primary implementation connects to the OpenClaw gateway over WebSocket, with automatic HTTP fallback when WebSocket is unavailable.
+The channels module lets OpenJarvis send and receive messages through external messaging platforms. Each platform has a dedicated channel implementation that connects directly to the platform's API -- there is no intermediate gateway.
 
 !!! note "Channels are disabled by default"
-    The `[channel]` config section defaults to `enabled = false`. You must set `enabled = true` and configure a `gateway_url` before channel features become active.
+    The `[channel]` config section defaults to `enabled = false`. You must set `enabled = true` and configure platform-specific credentials before channel features become active.
 
 ---
 
 ## Overview
 
-Channel messaging is built around a simple abstraction: a `BaseChannel` connects to a gateway, registers handlers for incoming messages, and sends outgoing messages by name. The `OpenClawChannelBridge` is the bundled implementation that speaks to the OpenClaw gateway.
+Channel messaging is built around the `BaseChannel` ABC. Each platform (Telegram, Discord, Slack, WhatsApp, etc.) has its own implementation registered via `@ChannelRegistry.register("name")`. Channels connect directly to their platform APIs, register handlers for incoming messages, and send outgoing messages.
 
 ```mermaid
 graph LR
-    A[Your Code] -->|send| B[OpenClawChannelBridge]
-    B -->|WebSocket| C[OpenClaw Gateway]
-    C -->|ws message| B
+    A[Your Code] -->|send| B[TelegramChannel / DiscordChannel / SlackChannel / ...]
+    B -->|Platform API| C[Telegram / Discord / Slack / ...]
+    C -->|incoming messages| B
     B -->|on_message handlers| D[Your Handlers]
 ```
 
 ---
 
-## OpenClawChannelBridge
+## Supported Channels
 
-`OpenClawChannelBridge` is registered as `"openclaw"` in `ChannelRegistry` and connects to the OpenClaw gateway over WebSocket. If the `websockets` package is not installed, it falls back to HTTP automatically.
+| Channel | Registry Key | Platform | Pip Extra | Auth |
+|---------|-------------|----------|-----------|------|
+| `TelegramChannel` | `telegram` | Telegram Bot API | `channel-telegram` | Bot token |
+| `DiscordChannel` | `discord` | Discord Bot API | `channel-discord` | Bot token |
+| `SlackChannel` | `slack` | Slack Web API | `channel-slack` | Bot + App tokens |
+| `WhatsAppChannel` | `whatsapp` | WhatsApp Business API | — | API token |
+| `WhatsAppBaileysChannel` | `whatsapp_baileys` | WhatsApp (Baileys) | — | QR code auth |
+| `WebhookChannel` | `webhook` | Generic HTTP webhook | — | URL + optional secret |
+| `EmailChannel` | `email` | SMTP/IMAP email | — | Email credentials |
+| `SignalChannel` | `signal` | Signal Messenger | — | Signal CLI |
+| `GoogleChatChannel` | `google_chat` | Google Chat | — | Service account |
+| `IRCChannel` | `irc` | IRC | — | Server credentials |
+| `WebChatChannel` | `webchat` | Browser-based chat | — | None |
+| `TeamsChannel` | `teams` | Microsoft Teams | — | Bot credentials |
+| `MatrixChannel` | `matrix` | Matrix protocol | — | Homeserver + token |
+| `MattermostChannel` | `mattermost` | Mattermost | — | Bot token |
+| `FeishuChannel` | `feishu` | Feishu/Lark | — | App credentials |
+| `BlueBubblesChannel` | `bluebubbles` | iMessage (BlueBubbles) | — | BlueBubbles server |
+| `LineChannel` | `line` | LINE Messaging API | `channel-line` | Channel access token |
+| `ViberChannel` | `viber` | Viber Bot API | `channel-viber` | Auth token |
+| `MessengerChannel` | `messenger` | Facebook Messenger | `channel-messenger` | Page access token |
+| `RedditChannel` | `reddit` | Reddit API | `channel-reddit` | OAuth credentials |
+| `MastodonChannel` | `mastodon` | Mastodon API | `channel-mastodon` | Access token |
+| `XMPPChannel` | `xmpp` | XMPP/Jabber | `channel-xmpp` | JID + password |
+| `RocketChatChannel` | `rocketchat` | Rocket.Chat API | `channel-rocketchat` | User credentials |
+| `ZulipChannel` | `zulip` | Zulip API | `channel-zulip` | Bot email + API key |
+| `TwitchChannel` | `twitch` | Twitch IRC/API | `channel-twitch` | OAuth token |
+| `NostrChannel` | `nostr` | Nostr protocol | `channel-nostr` | Private key (nsec) |
+
+---
+
+## Using a Channel
 
 ### Connecting
 
 ```python title="connect.py"
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.telegram import TelegramChannel
 
-bridge = OpenClawChannelBridge(
-    gateway_url="ws://127.0.0.1:18789/ws",  # (1)!
-    reconnect_interval=5.0,                  # (2)!
+channel = TelegramChannel(
+    bot_token="YOUR_BOT_TOKEN",  # (1)!
 )
-bridge.connect()
+channel.connect()
 
-print(bridge.status())  # ChannelStatus.CONNECTED
+print(channel.status())  # ChannelStatus.CONNECTED
 ```
 
-1. Defaults to the locally running OpenClaw gateway. Override to point at a remote gateway.
-2. Seconds to wait before attempting reconnection after a disconnect.
+1. Falls back to the `TELEGRAM_BOT_TOKEN` environment variable if not provided.
 
 ### Sending Messages
 
 ```python title="send_message.py"
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.telegram import TelegramChannel
 
-bridge = OpenClawChannelBridge()
-bridge.connect()
+channel = TelegramChannel()
+channel.connect()
 
-# Send to a named channel
-ok = bridge.send(
-    "user-notifications",
+# Send to a chat by ID
+ok = channel.send(
+    "123456789",
     "Analysis complete. Results are ready.",
-    conversation_id="conv-abc123",  # optional, for threading
+    conversation_id="thread-abc123",  # optional, for threading
 )
 
 if ok:
@@ -62,7 +91,7 @@ if ok:
 else:
     print("Delivery failed")
 
-bridge.disconnect()
+channel.disconnect()
 ```
 
 ### Receiving Messages
@@ -71,9 +100,9 @@ Register handler callbacks before calling `connect()`. Each handler receives a `
 
 ```python title="receive_messages.py"
 from openjarvis.channels._stubs import ChannelMessage
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.discord_channel import DiscordChannel
 
-bridge = OpenClawChannelBridge()
+channel = DiscordChannel()
 
 
 def handle_incoming(msg: ChannelMessage) -> None:
@@ -82,32 +111,32 @@ def handle_incoming(msg: ChannelMessage) -> None:
     print(f"  message_id={msg.message_id}")
 
 
-bridge.on_message(handle_incoming)  # (1)!
-bridge.connect()                    # (2)!
+channel.on_message(handle_incoming)  # (1)!
+channel.connect()                    # (2)!
 
 # Messages now arrive asynchronously via the background listener thread
 # Your main thread can continue doing other work
 ```
 
 1. Register one or more handlers. All registered handlers are called for every incoming message.
-2. `connect()` starts the background listener thread after establishing the WebSocket connection.
+2. `connect()` starts the background listener thread after establishing the platform connection.
 
 ### Listing Available Channels
 
 ```python title="list_channels.py"
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.slack import SlackChannel
 
-bridge = OpenClawChannelBridge()
-# No need to call connect() — list_channels() uses HTTP directly
-channels = bridge.list_channels()
-print(channels)  # ["user-notifications", "system-alerts", "chat"]
+channel = SlackChannel()
+channel.connect()
+channels = channel.list_channels()
+print(channels)  # ["general", "random", "dev"]
 ```
 
 ### Disconnecting
 
 ```python title="disconnect.py"
-bridge.disconnect()
-# Stops the listener thread and closes the WebSocket connection
+channel.disconnect()
+# Stops the listener thread and closes the platform connection
 # Status becomes ChannelStatus.DISCONNECTED
 ```
 
@@ -124,34 +153,8 @@ Every incoming message is delivered to handlers as a `ChannelMessage` dataclass.
 | `content` | `str` | Message text |
 | `message_id` | `str` | Unique message identifier (may be empty) |
 | `conversation_id` | `str` | Thread/conversation identifier (may be empty) |
-| `metadata` | `dict[str, Any]` | Additional metadata from the gateway |
-
----
-
-## WebSocket and HTTP Fallback
-
-`OpenClawChannelBridge` tries WebSocket first and falls back to HTTP transparently:
-
-| Transport | When Used | Notes |
-|-----------|-----------|-------|
-| WebSocket (`websockets` library) | `websockets` package is installed and gateway is reachable | Enables real-time push delivery via background listener thread |
-| HTTP fallback (`httpx`) | `websockets` not installed, or WebSocket send fails | `send()` uses `POST /send`; `list_channels()` uses `GET /channels`. No push delivery. |
-
-!!! warning "Receiving messages requires WebSocket"
-    The `on_message` handler system is powered by the WebSocket listener thread. If you are running in HTTP fallback mode, incoming messages are not delivered to handlers. You must poll `list_channels()` or use a different mechanism to receive messages.
-
-### Checking Which Transport Is Active
-
-```python
-bridge = OpenClawChannelBridge()
-bridge.connect()
-
-# If ws is None, we are in HTTP fallback mode
-if bridge._ws is None:
-    print("Running in HTTP fallback mode")
-else:
-    print("Connected via WebSocket")
-```
+| `session_id` | `str` | Session identifier (may be empty) |
+| `metadata` | `dict[str, Any]` | Additional platform-specific metadata |
 
 ---
 
@@ -161,7 +164,7 @@ Pass an `EventBus` to publish channel events to the rest of the system:
 
 ```python title="channel_events.py"
 from openjarvis.core.events import EventBus, EventType
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.telegram import TelegramChannel
 
 bus = EventBus()
 
@@ -177,27 +180,14 @@ def on_sent(event):
 bus.subscribe(EventType.CHANNEL_MESSAGE_RECEIVED, on_received)
 bus.subscribe(EventType.CHANNEL_MESSAGE_SENT, on_sent)
 
-bridge = OpenClawChannelBridge(bus=bus)
-bridge.connect()
+channel = TelegramChannel(bus=bus)
+channel.connect()
 ```
 
 | Event | Published When | Data Keys |
 |-------|----------------|-----------|
-| `CHANNEL_MESSAGE_RECEIVED` | A message arrives from the gateway | `channel`, `sender`, `content`, `message_id` |
+| `CHANNEL_MESSAGE_RECEIVED` | A message arrives from the platform | `channel`, `sender`, `content`, `message_id` |
 | `CHANNEL_MESSAGE_SENT` | A message is successfully sent | `channel`, `content`, `conversation_id` |
-
----
-
-## Reconnect Behavior
-
-The listener thread handles disconnects automatically:
-
-1. If `_ws.recv()` raises an exception (network drop, server restart), the thread logs a warning.
-2. The bridge waits `reconnect_interval` seconds (default: 5.0).
-3. It attempts to re-establish the WebSocket connection.
-4. If reconnection succeeds, message delivery resumes. If it fails, the bridge enters `ChannelStatus.ERROR` and the thread tries again on the next iteration.
-
-Calling `disconnect()` sets a stop event that causes the listener thread to exit cleanly without waiting for a reconnect cycle.
 
 ---
 
@@ -208,49 +198,31 @@ The `jarvis channel` subcommand group provides quick access to channel operation
 ### List Channels
 
 ```bash
-# Use the gateway URL from config
 jarvis channel list
-
-# Override the gateway URL
-jarvis channel list --gateway ws://192.168.1.100:18789/ws
 ```
 
 ### Send a Message
 
 ```bash
 # Send to a channel by name
-jarvis channel send user-notifications "Build completed successfully"
-
-# With a custom gateway URL
-jarvis channel send alerts "Disk usage exceeded 90%" --gateway ws://myserver:18789/ws
+jarvis channel send telegram "Build completed successfully"
 ```
 
 ### Show Status
 
 ```bash
-# Show connection status for the configured gateway
 jarvis channel status
-
-# Check a specific gateway
-jarvis channel status --gateway ws://192.168.1.100:18789/ws
-```
-
-Example output:
-
-```
-Gateway: ws://127.0.0.1:18789/ws
-Status: connected
 ```
 
 ---
 
 ## API Server Endpoints
 
-When `jarvis serve` is running, three channel endpoints are available. The channel bridge must be configured and enabled in `[channel]` for these endpoints to return data.
+When `jarvis serve` is running, three channel endpoints are available. Channels must be configured and enabled in `[channel]` for these endpoints to return data.
 
 ### `GET /v1/channels`
 
-Returns the list of available channels and the current bridge status.
+Returns the list of registered channels and their status.
 
 ```bash
 curl http://localhost:8000/v1/channels
@@ -258,14 +230,14 @@ curl http://localhost:8000/v1/channels
 
 ```json
 {
-  "channels": ["user-notifications", "system-alerts"],
+  "channels": ["telegram", "discord", "slack"],
   "status": "connected"
 }
 ```
 
-If the bridge is not configured:
+If no channels are configured:
 ```json
-{"channels": [], "message": "Channel bridge not configured"}
+{"channels": [], "message": "No channels configured"}
 ```
 
 ### `POST /v1/channels/send`
@@ -275,18 +247,18 @@ Send a message to a channel.
 ```bash
 curl -X POST http://localhost:8000/v1/channels/send \
   -H "Content-Type: application/json" \
-  -d '{"channel": "user-notifications", "content": "Hello!", "conversation_id": "conv-1"}'
+  -d '{"channel": "telegram", "content": "Hello!", "conversation_id": "conv-1"}'
 ```
 
 ```json
-{"status": "sent", "channel": "user-notifications"}
+{"status": "sent", "channel": "telegram"}
 ```
 
 Required fields: `channel`, `content`. `conversation_id` is optional.
 
 ### `GET /v1/channels/status`
 
-Returns the bridge connection status string.
+Returns the connection status for each configured channel.
 
 ```bash
 curl http://localhost:8000/v1/channels/status
@@ -302,14 +274,23 @@ Possible values: `connected`, `disconnected`, `connecting`, `error`, `not_config
 
 ## Configuration
 
-Channel settings live in the `[channel]` section of `~/.openjarvis/config.toml`.
+Channel settings live in the `[channel]` section of `~/.openjarvis/config.toml`. Each platform has its own nested sub-section.
 
 ```toml title="~/.openjarvis/config.toml"
 [channel]
 enabled = true
-gateway_url = "ws://127.0.0.1:18789/ws"
+default_channel = ""
 default_agent = "simple"
-reconnect_interval = 5.0
+
+[channel.telegram]
+bot_token = "YOUR_TELEGRAM_BOT_TOKEN"
+
+[channel.discord]
+bot_token = "YOUR_DISCORD_BOT_TOKEN"
+
+[channel.slack]
+bot_token = "YOUR_SLACK_BOT_TOKEN"
+app_token = "YOUR_SLACK_APP_TOKEN"
 ```
 
 ### Configuration Reference
@@ -317,27 +298,26 @@ reconnect_interval = 5.0
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `enabled` | `bool` | `false` | Enable channel messaging |
-| `gateway_url` | `str` | `ws://127.0.0.1:18789/ws` | WebSocket URL of the OpenClaw gateway |
+| `default_channel` | `str` | `""` | Default channel to use when not specified |
 | `default_agent` | `str` | `simple` | Agent to use for handling inbound messages |
-| `reconnect_interval` | `float` | `5.0` | Seconds between reconnection attempts |
+
+Platform-specific settings are configured in nested sub-sections (e.g., `[channel.telegram]`, `[channel.discord]`).
 
 ---
 
 ## Complete Example
 
-This example connects to the OpenClaw gateway, registers a handler that echoes messages back, sends a test message, and then disconnects after a short wait.
+This example connects a Telegram channel, registers a handler that echoes messages back, sends a test message, and then disconnects after a short wait.
 
 ```python title="full_example.py"
 import time
-import threading
 from openjarvis.channels._stubs import ChannelMessage
-from openjarvis.channels.openclaw_bridge import OpenClawChannelBridge
+from openjarvis.channels.telegram import TelegramChannel
 from openjarvis.core.events import EventBus
 
 bus = EventBus()
-bridge = OpenClawChannelBridge(
-    gateway_url="ws://127.0.0.1:18789/ws",
-    reconnect_interval=5.0,
+channel = TelegramChannel(
+    bot_token="YOUR_BOT_TOKEN",
     bus=bus,
 )
 
@@ -349,21 +329,21 @@ def on_message(msg: ChannelMessage) -> None:
     print(f"Received from {msg.sender} on #{msg.channel}: {msg.content}")
 
 
-bridge.on_message(on_message)
-bridge.connect()
+channel.on_message(on_message)
+channel.connect()
 
 # List available channels
-channels = bridge.list_channels()
+channels = channel.list_channels()
 print(f"Available channels: {channels}")
 
 # Send a message
 if channels:
-    bridge.send(channels[0], "Hello from OpenJarvis!")
+    channel.send(channels[0], "Hello from OpenJarvis!")
 
 # Wait for incoming messages
 time.sleep(10)
 
-bridge.disconnect()
+channel.disconnect()
 print(f"Total messages received: {len(received_messages)}")
 ```
 
@@ -484,7 +464,7 @@ assistant_has_own_number = false
 
 ## See Also
 
-- [Architecture: Channels](../architecture/channels.md) — listener loop internals and reconnect design
-- [API Reference: Channels](../api/channels.md) — full class and type signatures
-- [Getting Started: Configuration](../getting-started/configuration.md) — full config reference
-- [OpenClaw Agent](agents.md) — the agent infrastructure that uses OpenClaw transport
+- [Architecture: Channels](../architecture/channels.md) -- listener loop internals and channel design
+- [API Reference: Channels](../api-reference/openjarvis/channels/index.md) -- full class and type signatures
+- [Getting Started: Configuration](../getting-started/configuration.md) -- full config reference
+- [User Guide: Agents](agents.md) -- agent system documentation

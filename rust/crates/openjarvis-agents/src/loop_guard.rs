@@ -3,6 +3,7 @@
 use sha2::{Digest, Sha256};
 use std::collections::{HashSet, VecDeque};
 
+#[allow(dead_code)]
 pub struct LoopGuard {
     seen_hashes: HashSet<String>,
     recent_calls: VecDeque<String>,

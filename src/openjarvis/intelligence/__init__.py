@@ -1,4 +1,4 @@
-"""Intelligence pillar — the model definition and catalog."""
+"""Intelligence primitive — the model definition and catalog."""
 
 from __future__ import annotations
 

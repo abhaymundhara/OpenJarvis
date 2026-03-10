@@ -54,6 +54,32 @@ host = "http://localhost:30000"
 [engine.llamacpp]
 host = "http://localhost:8080"
 
+[engine.exo]
+host = "http://localhost:52415"
+
+[engine.nexa]
+host = "http://localhost:18181"
+# device = ""
+
+[engine.uzu]
+host = "http://localhost:8080"
+
+[engine.apple_fm]
+host = "http://localhost:8079"
+
+[engine.exo]
+host = "http://localhost:52415"
+
+[engine.nexa]
+host = "http://localhost:18181"
+# device = "npu"  # optional: cpu, gpu, npu
+
+[engine.uzu]
+host = "http://localhost:8080"
+
+[engine.apple_fm]
+host = "http://localhost:8079"
+
 # ═══════════════════════════════════════════════════════════════
 # PILLAR 5: Learning — Improvement Methodologies
 # ═══════════════════════════════════════════════════════════════

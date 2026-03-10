@@ -214,6 +214,76 @@ class TestMemoryHandle:
         handle.close()
 
 
+class TestJarvisStreaming:
+    @pytest.mark.asyncio
+    async def test_ask_stream_yields_tokens(self):
+        engine = _make_engine()
+
+        async def mock_stream(*args, **kwargs):
+            for token in ["Hello", " ", "world"]:
+                yield token
+
+        engine.stream = mock_stream
+
+        with patch("openjarvis.sdk.get_engine", return_value=("mock", engine)):
+            j = Jarvis(config=JarvisConfig(), model="test-model")
+            tokens = []
+            async for token in j.ask_stream("Hi"):
+                tokens.append(token)
+            assert tokens == ["Hello", " ", "world"]
+            j.close()
+
+    @pytest.mark.asyncio
+    async def test_ask_full_stream_yields_dicts(self):
+        engine = _make_engine()
+
+        async def mock_stream(*args, **kwargs):
+            for token in ["Hello", " ", "world"]:
+                yield token
+
+        engine.stream = mock_stream
+
+        with patch("openjarvis.sdk.get_engine", return_value=("mock", engine)):
+            j = Jarvis(config=JarvisConfig(), model="test-model")
+            chunks = []
+            async for chunk in j.ask_full_stream("Hi"):
+                chunks.append(chunk)
+
+            # First three chunks are token dicts
+            assert chunks[0] == {"token": "Hello", "index": 0}
+            assert chunks[1] == {"token": " ", "index": 1}
+            assert chunks[2] == {"token": "world", "index": 2}
+
+            # Final chunk has done flag and full content
+            final = chunks[-1]
+            assert final["done"] is True
+            assert final["content"] == "Hello world"
+            assert final["model"] == "test-model"
+            assert final["engine"] == "mock"
+            j.close()
+
+    @pytest.mark.asyncio
+    async def test_ask_stream_with_model_override(self):
+        engine = _make_engine()
+        call_log: list = []
+
+        async def mock_stream(*args, **kwargs):
+            call_log.append(kwargs)
+            for token in ["ok"]:
+                yield token
+
+        engine.stream = mock_stream
+
+        with patch("openjarvis.sdk.get_engine", return_value=("mock", engine)):
+            j = Jarvis(config=JarvisConfig())
+            tokens = []
+            async for token in j.ask_stream("Hi", model="custom-model"):
+                tokens.append(token)
+            assert tokens == ["ok"]
+            assert call_log[0]["model"] == "custom-model"
+            j.close()
+
+
 class TestJarvisLifecycle:
     def test_close_releases_resources(self):
         j = Jarvis(config=JarvisConfig())

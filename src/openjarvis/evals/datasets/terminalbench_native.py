@@ -1,4 +1,4 @@
-"""TerminalBench Native dataset — loads from the terminal-bench pip package.
+"""TerminalBench Native dataset — loads from the terminal-bench pip package (v2 API).
 
 Agentic benchmark using the native terminal-bench SDK for task loading
 and test-based evaluation.
@@ -14,16 +14,51 @@ from openjarvis.evals.core.dataset import DatasetProvider
 from openjarvis.evals.core.types import EvalRecord
 
 try:
-    from terminal_bench import Task, TaskPaths
-    from terminal_bench import TerminalBenchDataset as _TBDataset
+    from terminal_bench.dataset import Dataset as _TBDataset
 
     _HAS_TERMINALBENCH = True
 except ImportError:
     _HAS_TERMINALBENCH = False
 
 
+def _load_task_yaml(task_dir: Path) -> Dict[str, Any]:
+    """Load task.yaml from a task directory."""
+    task_file = task_dir / "task.yaml"
+    if not task_file.exists():
+        return {}
+    try:
+        import yaml
+        return yaml.safe_load(task_file.read_text()) or {}
+    except ImportError:
+        # Fallback: parse instruction manually
+        text = task_file.read_text()
+        result: Dict[str, Any] = {}
+        # Extract instruction block
+        if "instruction:" in text:
+            idx = text.index("instruction:")
+            after = text[idx + len("instruction:"):]
+            # Handle YAML block scalar (|-) or plain string
+            after = after.lstrip()
+            if after.startswith("|-"):
+                after = after[2:].lstrip("\n")
+                lines = []
+                for line in after.split("\n"):
+                    if line and not line.startswith(" ") and not line.startswith("\t"):
+                        break
+                    lines.append(line)
+                result["instruction"] = "\n".join(lines).strip()
+            else:
+                result["instruction"] = after.split("\n")[0].strip()
+        for field in ("category", "difficulty", "author_email"):
+            if f"{field}:" in text:
+                idx = text.index(f"{field}:")
+                val = text[idx + len(field) + 1:].split("\n")[0].strip()
+                result[field] = val
+        return result
+
+
 class TerminalBenchNativeDataset(DatasetProvider):
-    """TerminalBench using the native terminal-bench pip package."""
+    """TerminalBench using the native terminal-bench pip package (v2 API)."""
 
     dataset_id = "terminalbench-native"
     dataset_name = "TerminalBench Native"
@@ -57,12 +92,13 @@ class TerminalBenchNativeDataset(DatasetProvider):
                 "Install it with: pip install terminal-bench"
             )
 
-        tb_kwargs: Dict[str, Any] = {
-            "name": self._name,
-            "version": self._version,
-        }
+        tb_kwargs: Dict[str, Any] = {}
+        if self._name is not None:
+            tb_kwargs["name"] = self._name
+        if self._version is not None:
+            tb_kwargs["version"] = self._version
         if self._path is not None:
-            tb_kwargs["path"] = str(self._path)
+            tb_kwargs["path"] = self._path
         if self._task_ids is not None:
             tb_kwargs["task_ids"] = self._task_ids
         if self._n_tasks is not None:
@@ -70,17 +106,18 @@ class TerminalBenchNativeDataset(DatasetProvider):
 
         tb_dataset = _TBDataset(**tb_kwargs)
 
-        task_paths_list: List[Path] = list(tb_dataset.tasks)
+        # v2 API: tasks is a list of Path objects (task directories)
+        task_dirs: List[Path] = list(tb_dataset.tasks)
 
         if seed is not None:
             rng = random.Random(seed)
-            rng.shuffle(task_paths_list)
+            rng.shuffle(task_dirs)
 
         if max_samples is not None:
-            task_paths_list = task_paths_list[:max_samples]
+            task_dirs = task_dirs[:max_samples]
 
         self._records = []
-        for idx, task_dir in enumerate(task_paths_list):
+        for idx, task_dir in enumerate(task_dirs):
             record = self._convert_task(task_dir, idx)
             if record is not None:
                 self._records.append(record)
@@ -94,24 +131,22 @@ class TerminalBenchNativeDataset(DatasetProvider):
     def _convert_task(
         self, task_dir: Path, idx: int,
     ) -> Optional[EvalRecord]:
-        task_paths = TaskPaths(task_dir)
-        task = Task(task_paths)
+        task_data = _load_task_yaml(task_dir)
 
-        instruction = str(getattr(task, "instruction", "") or "").strip()
+        instruction = task_data.get("instruction", "").strip()
         if not instruction:
             return None
 
-        task_id = str(getattr(task, "id", "") or task_dir.name or f"tbn_{idx}")
-        category_val = str(getattr(task, "category", "") or "terminal")
+        task_id = task_dir.name or f"tbn_{idx}"
+        category_val = task_data.get("category", "terminal")
 
         metadata: Dict[str, Any] = {
             "task_id": task_id,
             "task_dir": str(task_dir),
             "category": category_val,
-            "name": getattr(task, "name", None),
-            "tags": getattr(task, "tags", None),
-            "difficulty": getattr(task, "difficulty", None),
-            "timeout": getattr(task, "timeout", None),
+            "difficulty": task_data.get("difficulty"),
+            "tags": task_data.get("tags"),
+            "timeout": task_data.get("timeout"),
         }
 
         return EvalRecord(
@@ -122,6 +157,27 @@ class TerminalBenchNativeDataset(DatasetProvider):
             subject=category_val,
             metadata=metadata,
         )
+
+
+    def create_task_env(self, record):
+        """Return a TerminalBenchTaskEnv for the given record."""
+        try:
+            from openjarvis.evals.execution.terminalbench_env import (
+                TerminalBenchTaskEnv,
+            )
+            return TerminalBenchTaskEnv(record.metadata)
+        except ImportError:
+            return None
+
+    def verify_requirements(self):
+        """Check that terminal-bench and docker are available."""
+        issues = []
+        if not _HAS_TERMINALBENCH:
+            issues.append("terminal-bench package not installed")
+        import shutil
+        if not shutil.which("docker"):
+            issues.append("docker not found in PATH")
+        return issues
 
 
 __all__ = ["TerminalBenchNativeDataset"]

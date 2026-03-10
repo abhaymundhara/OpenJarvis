@@ -1,7 +1,7 @@
 """Recipe loader — load and resolve TOML recipe files.
 
 Recipes are the universal composition format for OpenJarvis.  Each recipe
-specifies all five pillars (Intelligence, Engine, Agent, Tools, Learning)
+specifies all five primitives (Intelligence, Engine, Agent, Tools, Learning)
 and carries a ``kind`` that determines its lifecycle:
 
 * ``"discrete"`` — one-shot or benchmark-oriented agents
@@ -30,7 +30,7 @@ _USER_OPERATORS_DIR = Path.home() / ".openjarvis" / "operators"
 
 @dataclass(slots=True)
 class Recipe:
-    """A composable pillar configuration loaded from TOML.
+    """A composable primitive configuration loaded from TOML.
 
     Covers both *discrete* agents (benchmarking / one-shot) and *operator*
     agents (persistent / scheduled) through the ``kind`` field.
@@ -53,6 +53,7 @@ class Recipe:
     agent_type: Optional[str] = None
     max_turns: Optional[int] = None
     temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
     tools: List[str] = field(default_factory=list)
     system_prompt: Optional[str] = None
     system_prompt_path: Optional[str] = None

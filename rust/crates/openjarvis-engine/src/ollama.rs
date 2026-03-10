@@ -152,8 +152,6 @@ impl InferenceEngine for OllamaEngine {
         max_tokens: i64,
         _extra: Option<&Value>,
     ) -> Result<TokenStream, OpenJarvisError> {
-        use futures::stream;
-
         let msg_dicts = crate::traits::messages_to_dicts(messages);
         let payload = serde_json::json!({
             "model": model,

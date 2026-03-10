@@ -6,7 +6,7 @@
 use rig::completion::request::ToolDefinition;
 use rig::tool::Tool as RigTool;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 // ---------------------------------------------------------------------------
 // Calculator

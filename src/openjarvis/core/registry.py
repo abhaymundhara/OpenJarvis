@@ -93,7 +93,7 @@ class RegistryBase(Generic[T]):
 
 
 # ---------------------------------------------------------------------------
-# Typed subclass registries — one per pillar
+# Typed subclass registries — one per primitive
 # ---------------------------------------------------------------------------
 
 

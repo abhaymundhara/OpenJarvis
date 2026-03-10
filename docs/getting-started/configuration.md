@@ -5,7 +5,7 @@ description: Complete reference for OpenJarvis configuration
 
 # Configuration
 
-OpenJarvis uses a TOML configuration file to control engine selection, model identity, memory backends, agent behavior, and more. This page is the complete reference for every configuration option, organized by pillar.
+OpenJarvis uses a TOML configuration file to control engine selection, model identity, memory backends, agent behavior, and more. This page is the complete reference for every configuration option, organized by primitive.
 
 ## Config File Location
 
@@ -44,7 +44,7 @@ jarvis init --force
 
 ## Configuration Sections
 
-The config file is organized into TOML sections corresponding to the five pillars. Every field has a default value, so you only need to specify values you want to change.
+The config file is organized into TOML sections corresponding to the five primitives. Every field has a default value, so you only need to specify values you want to change.
 
 ---
 
@@ -198,7 +198,7 @@ context_from_memory = true
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `default_agent` | string | `"simple"` | Default agent to use. Available: `simple`, `orchestrator`, `react`, `custom`, `openclaw`. |
+| `default_agent` | string | `"simple"` | Default agent to use. Available: `simple`, `orchestrator`, `react`, `operative`, `monitor_operative`. |
 | `max_turns` | int | `10` | Maximum number of tool-calling turns for the orchestrator agent before it must produce a final answer. |
 | `tools` | string | `""` | Comma-separated list of tools to enable by default (e.g., `"calculator,think"`). |
 | `objective` | string | `""` | Concise purpose string for routing, learning, and documentation. |
@@ -219,7 +219,7 @@ context_from_memory = true
 
 ### `[learning]` — Learning Policies
 
-Controls whether the learning system is enabled and configures per-pillar policies through nested sub-sections.
+Controls whether the learning system is enabled and configures per-primitive policies through nested sub-sections.
 
 ```toml
 [learning]
@@ -979,5 +979,5 @@ OpenJarvis respects the following environment variables:
 - [Quick Start](quickstart.md) — Run your first query
 - [CLI Reference](../user-guide/cli.md) — Full reference for all CLI commands
 - [Architecture Overview](../architecture/overview.md) — Understand how the pieces fit together
-- [Intelligence Pillar](../architecture/intelligence.md) — Model identity and generation defaults
+- [Intelligence Primitive](../architecture/intelligence.md) — Model identity and generation defaults
 - [Learning & Traces](../architecture/learning.md) — Router policies and the trace-driven feedback loop

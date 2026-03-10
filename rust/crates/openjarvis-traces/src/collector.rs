@@ -1,7 +1,7 @@
 //! TraceCollector — subscribes to EventBus and assembles traces.
 
 use crate::store::TraceStore;
-use openjarvis_core::{EventBus, EventType, StepType, Trace, TraceStep};
+use openjarvis_core::{Trace, TraceStep};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -75,6 +75,7 @@ impl TraceCollector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openjarvis_core::StepType;
 
     #[test]
     fn test_collector_lifecycle() {

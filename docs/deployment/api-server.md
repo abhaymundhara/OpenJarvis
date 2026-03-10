@@ -195,7 +195,7 @@ Serves the built-in Savings Dashboard, an HTML page that displays real-time stat
 
 ### `GET /v1/channels`
 
-List available messaging channels from the connected OpenClaw gateway.
+List registered channel backends and their connection status.
 
 #### Response
 
@@ -229,20 +229,22 @@ Send a message to a specific channel.
 
 ### `GET /v1/channels/status`
 
-Show the channel bridge connection status.
+Show connection status for all configured channels.
 
 #### Response
 
 ```json
 {
-  "connected": true,
-  "gateway_url": "ws://127.0.0.1:18789/ws",
-  "channels": ["slack", "discord"]
+  "channels": {
+    "slack": "connected",
+    "discord": "connected",
+    "telegram": "disconnected"
+  }
 }
 ```
 
 !!! note "Channel endpoints"
-    Channel endpoints require `[channel] enabled = true` in your config and a running OpenClaw gateway. When not configured, `GET /v1/channels` returns an empty list and other channel endpoints return 503.
+    Channel endpoints require `[channel] enabled = true` in your config and platform-specific credentials configured in `[channel.<platform>]` sub-sections. When not configured, `GET /v1/channels` returns an empty list and other channel endpoints return 503.
 
 ## Streaming via SSE
 

@@ -1,21 +1,21 @@
-# Intelligence Pillar
+# Intelligence Primitive
 
-The Intelligence pillar represents **the model** — its identity, weights, quantization format, fallback chain, and the catalog of well-known models with detailed metadata. It no longer contains routing logic; query analysis and model selection have moved to the [Learning pillar](learning.md).
+The Intelligence primitive represents **the model** — its identity, weights, quantization format, fallback chain, and the catalog of well-known models with detailed metadata. It no longer contains routing logic; query analysis and model selection have moved to the [Learning primitive](learning.md).
 
 ---
 
 ## Purpose
 
-The Intelligence pillar answers a single question: *what is the model?* It maintains a catalog of known models with metadata (parameter count, context length, VRAM requirements, supported engines) and provides helpers for registering built-in models and merging models discovered from running engines at runtime.
+The Intelligence primitive answers a single question: *what is the model?* It maintains a catalog of known models with metadata (parameter count, context length, VRAM requirements, supported engines) and provides helpers for registering built-in models and merging models discovered from running engines at runtime.
 
-The pillar provides three key capabilities:
+The primitive provides three key capabilities:
 
 1. **Model catalog** -- a registry of well-known models with metadata (parameter count, context length, VRAM requirements, supported engines)
 2. **Auto-discovery** -- merging models discovered from running engines into the catalog
 3. **Model configuration** -- `IntelligenceConfig` captures the local model's identity, weight paths, quantization, and preferred engine
 
 !!! info "Routing has moved"
-    Query analysis (`build_routing_context`) and model selection (`HeuristicRouter`, `RouterPolicy` ABC) now live in the [Learning pillar](learning.md). Backward-compatible re-exports remain in `intelligence/_stubs.py` and `intelligence/router.py` so existing code continues to work.
+    Query analysis (`build_routing_context`) and model selection (`HeuristicRouter`, `RouterPolicy` ABC) now live in the [Learning primitive](learning.md). Backward-compatible re-exports remain in `intelligence/_stubs.py` and `intelligence/router.py` so existing code continues to work.
 
 ---
 
@@ -255,4 +255,4 @@ New code should import from the canonical `learning.*` locations. The shims in `
 
 ## Integration with Learning
 
-The Learning pillar consumes the model catalog to make routing decisions. The `HeuristicRouter` and `TraceDrivenPolicy` both read `ModelRegistry` to compare model sizes when selecting between candidates. See the [Learning & Traces](learning.md) documentation for full details on routing policies, the `RouterPolicy` ABC, and the trace-driven feedback loop.
+The Learning primitive consumes the model catalog to make routing decisions. The `HeuristicRouter` and `TraceDrivenPolicy` both read `ModelRegistry` to compare model sizes when selecting between candidates. See the [Learning & Traces](learning.md) documentation for full details on routing policies, the `RouterPolicy` ABC, and the trace-driven feedback loop.

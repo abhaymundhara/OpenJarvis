@@ -176,7 +176,39 @@ print(desc)
 
 ---
 
-## Built-in Tools
+## Built-in Tools Summary
+
+All built-in tools are registered via `@ToolRegistry.register()` and are available by name to agents and the CLI.
+
+| Category | Registry Key | Description |
+|----------|-------------|-------------|
+| **Reasoning** | `think` | Zero-cost reasoning scratchpad for chain-of-thought |
+| **Math** | `calculator` | Safe math expression evaluator (ast-based) |
+| **Code** | `code_interpreter` | Execute Python code in a sandboxed subprocess |
+| **Code** | `code_interpreter_docker` | Execute Python code in a disposable Docker container |
+| **Code** | `repl` | Persistent Python REPL with state across calls |
+| **Search** | `web_search` | Web search returning result summaries |
+| **File I/O** | `file_read` | Read file contents with safety validations |
+| **HTTP** | `http_request` | Make HTTP requests with SSRF protection |
+| **Memory** | `retrieval` | Search the memory backend for relevant context |
+| **Memory** | `memory_store` | Store content in the memory backend |
+| **Memory** | `memory_retrieve` | Retrieve relevant content from the memory backend |
+| **Memory** | `memory_search` | Full-text search across stored memory |
+| **Memory** | `memory_index` | Index a file or directory into the memory backend |
+| **Inference** | `llm` | Delegate a sub-query to an inference engine |
+| **Channel** | `channel_send` | Send a message via a channel (Telegram, Discord, etc.) |
+| **Channel** | `channel_list` | List available messaging channels |
+| **Channel** | `channel_status` | Check the connection status of a messaging channel |
+| **Scheduler** | `schedule_task` | Schedule a task for future or recurring execution |
+| **Scheduler** | `list_scheduled_tasks` | List all scheduled tasks |
+| **Scheduler** | `pause_scheduled_task` | Pause an active scheduled task |
+| **Scheduler** | `resume_scheduled_task` | Resume a paused scheduled task |
+| **Scheduler** | `cancel_scheduled_task` | Cancel a scheduled task permanently |
+| **Integration** | `mcp_adapter` | Bridge to external MCP tool servers |
+
+---
+
+## Built-in Tool Details
 
 ### Calculator
 

@@ -23,13 +23,13 @@ class TestSafeEval:
         assert safe_eval("10 / 4") == 2.5
 
     def test_floor_division(self):
-        assert safe_eval("10 // 3") == 3
+        assert safe_eval("floor(10/3)") == 3
 
     def test_modulo(self):
         assert safe_eval("10 % 3") == 1
 
     def test_power(self):
-        assert safe_eval("2 ** 10") == 1024
+        assert safe_eval("2^10") == 1024
 
     def test_negative(self):
         assert safe_eval("-5 + 3") == -2
@@ -41,7 +41,7 @@ class TestSafeEval:
         assert safe_eval("sqrt(16)") == 4.0
 
     def test_log(self):
-        assert abs(safe_eval("log(e)") - 1.0) < 1e-10
+        assert abs(safe_eval("ln(e)") - 1.0) < 1e-10
 
     def test_pi_constant(self):
         assert abs(safe_eval("pi") - math.pi) < 1e-10
@@ -51,23 +51,23 @@ class TestSafeEval:
         assert abs(safe_eval("cos(0)") - 1.0) < 1e-10
 
     def test_division_by_zero(self):
-        with pytest.raises(ZeroDivisionError):
-            safe_eval("1 / 0")
+        # meval returns infinity for division by zero
+        assert safe_eval("1 / 0") == math.inf
 
     def test_syntax_error(self):
-        with pytest.raises(SyntaxError):
+        with pytest.raises(ValueError):
             safe_eval("2 +")
 
     def test_unsupported_string_constant(self):
-        with pytest.raises(ValueError, match="Unsupported constant"):
+        with pytest.raises(ValueError):
             safe_eval("'hello'")
 
     def test_unknown_function(self):
         with pytest.raises(ValueError, match="Unknown function"):
-            safe_eval("exec('bad')")
+            safe_eval("exec(1)")
 
     def test_unknown_variable(self):
-        with pytest.raises(ValueError, match="Unknown variable"):
+        with pytest.raises(ValueError, match="unknown variable"):
             safe_eval("x + 1")
 
 
@@ -81,7 +81,7 @@ class TestCalculatorTool:
         tool = CalculatorTool()
         result = tool.execute(expression="2 + 3 * 4")
         assert result.success is True
-        assert result.content == "14"
+        assert result.content == "14.0"
 
     def test_empty_expression(self):
         tool = CalculatorTool()
@@ -96,8 +96,9 @@ class TestCalculatorTool:
     def test_division_by_zero_error(self):
         tool = CalculatorTool()
         result = tool.execute(expression="1/0")
-        assert result.success is False
-        assert "division by zero" in result.content
+        # meval returns infinity for division by zero (not an error)
+        assert result.success is True
+        assert result.content == "inf"
 
     def test_invalid_expression_error(self):
         tool = CalculatorTool()

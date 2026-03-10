@@ -50,10 +50,7 @@ impl BaseTool for HttpRequestTool {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                ))
+                OpenJarvisError::Io(std::io::Error::other(e.to_string()))
             })?;
 
         let mut request = match method.as_str() {

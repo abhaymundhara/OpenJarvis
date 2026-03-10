@@ -15,11 +15,13 @@ from openjarvis.core.config import (
     detect_hardware,
     generate_default_toml,
     recommend_engine,
+    recommend_model,
 )
 
 
-def _next_steps_text(engine: str) -> str:
+def _next_steps_text(engine: str, model: str = "") -> str:
     """Return engine-specific next-steps guidance after init."""
+    pull_model = model or "qwen3.5:3b"
     steps: dict[str, str] = {
         "ollama": (
             "Next steps:\n"
@@ -31,7 +33,7 @@ def _next_steps_text(engine: str) -> str:
             "     ollama serve\n"
             "\n"
             "  3. Pull a model:\n"
-            "     ollama pull qwen3:8b\n"
+            f"     ollama pull {pull_model}\n"
             "\n"
             "  4. Try it out:\n"
             "     jarvis ask \"Hello\"\n"
@@ -163,10 +165,13 @@ def init(force: bool, config: Optional[Path]) -> None:
     console.print("[green]Config written successfully.[/green]")
 
     engine = recommend_engine(hw)
+    model = recommend_model(hw, engine)
+    if model:
+        console.print(f"\n  [bold]Recommended model:[/bold] {model}")
     console.print()
     console.print(
         Panel(
-            _next_steps_text(engine),
+            _next_steps_text(engine, model),
             title="Getting Started",
             border_style="cyan",
         )

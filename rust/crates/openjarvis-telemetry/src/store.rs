@@ -14,13 +14,12 @@ impl TelemetryStore {
     pub fn new(db_path: &Path) -> Result<Self, OpenJarvisError> {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                OpenJarvisError::Io(std::io::Error::other(e))
             })?;
         }
 
         let conn = Connection::open(db_path).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -51,8 +50,7 @@ impl TelemetryStore {
             )",
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -102,8 +100,7 @@ impl TelemetryStore {
             ],
         )
         .map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;
@@ -115,8 +112,7 @@ impl TelemetryStore {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM telemetry", [], |row| row.get(0))
             .map_err(|e| {
-                OpenJarvisError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                OpenJarvisError::Io(std::io::Error::other(
                     e.to_string(),
                 ))
             })?;
@@ -126,8 +122,7 @@ impl TelemetryStore {
     pub fn clear(&self) -> Result<(), OpenJarvisError> {
         let conn = self.conn.lock();
         conn.execute("DELETE FROM telemetry", []).map_err(|e| {
-            OpenJarvisError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            OpenJarvisError::Io(std::io::Error::other(
                 e.to_string(),
             ))
         })?;

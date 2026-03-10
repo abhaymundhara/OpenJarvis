@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import signal
 import subprocess
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 # Safe environment variables to pass through
 _SAFE_ENV_VARS = frozenset({
@@ -49,12 +52,12 @@ def kill_process_tree(pid: int) -> None:
     """Kill a process and all its children (best effort)."""
     try:
         os.killpg(os.getpgid(pid), signal.SIGTERM)
-    except (OSError, ProcessLookupError):
-        pass
+    except (OSError, ProcessLookupError) as exc:
+        logger.debug("Failed to terminate process %d: %s", pid, exc)
     try:
         os.kill(pid, signal.SIGKILL)
-    except (OSError, ProcessLookupError):
-        pass
+    except (OSError, ProcessLookupError) as exc:
+        logger.debug("Failed to kill process %d: %s", pid, exc)
 
 
 def run_sandboxed(
