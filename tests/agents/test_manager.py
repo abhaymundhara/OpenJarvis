@@ -161,3 +161,33 @@ class TestConcurrency:
         # Trying to run again should raise
         with pytest.raises(ValueError, match="already executing"):
             manager.start_tick(agent["id"])
+
+
+class TestSchemaAndThreading:
+    def test_agent_has_runtime_columns(self, manager):
+        """New columns from ALTER TABLE migration should exist."""
+        agent = manager.create_agent(name="test", agent_type="simple")
+        assert "total_tokens" in agent
+        assert "total_cost" in agent
+        assert "total_runs" in agent
+        assert "last_run_at" in agent
+        assert "last_activity_at" in agent
+        assert agent["total_tokens"] == 0
+        assert agent["total_cost"] == 0.0
+        assert agent["total_runs"] == 0
+
+    def test_thread_safety(self, manager):
+        """AgentManager should be usable from a different thread."""
+        import threading
+
+        results = []
+
+        def create_in_thread():
+            agent = manager.create_agent(name="threaded", agent_type="simple")
+            results.append(agent)
+
+        t = threading.Thread(target=create_in_thread)
+        t.start()
+        t.join(timeout=5)
+        assert len(results) == 1
+        assert results[0]["name"] == "threaded"

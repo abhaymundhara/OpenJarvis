@@ -57,12 +57,27 @@ class AgentManager:
 
     def __init__(self, db_path: str) -> None:
         self._db_path = str(db_path)
-        self._conn = sqlite3.connect(self._db_path)
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.execute(_CREATE_AGENTS)
         self._conn.execute(_CREATE_TASKS)
         self._conn.execute(_CREATE_BINDINGS)
+        self._conn.commit()
+        # Schema migrations for runtime columns
+        _MIGRATIONS = [
+            "ALTER TABLE managed_agents ADD COLUMN total_tokens INTEGER DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN total_cost REAL DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN total_runs INTEGER DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN last_run_at REAL",
+            "ALTER TABLE managed_agents ADD COLUMN last_activity_at REAL",
+        ]
+        for migration in _MIGRATIONS:
+            try:
+                self._conn.execute(migration)
+            except sqlite3.OperationalError:
+                pass  # Column already exists
         self._conn.commit()
 
     def close(self) -> None:
@@ -329,37 +344,46 @@ class AgentManager:
     # ── Row converters ────────────────────────────────────────────
 
     @staticmethod
-    def _row_to_agent(row: tuple) -> Dict[str, Any]:
+    def _row_to_agent(row: sqlite3.Row) -> Dict[str, Any]:
+        config_raw = row["config_json"]
         return {
-            "id": row[0],
-            "name": row[1],
-            "agent_type": row[2],
-            "config": json.loads(row[3]),
-            "status": row[4],
-            "summary_memory": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
+            "id": row["id"],
+            "name": row["name"],
+            "agent_type": row["agent_type"],
+            "config": json.loads(config_raw) if config_raw else {},
+            "status": row["status"],
+            "summary_memory": row["summary_memory"] or "",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "total_tokens": row["total_tokens"] or 0,
+            "total_cost": row["total_cost"] or 0.0,
+            "total_runs": row["total_runs"] or 0,
+            "last_run_at": row["last_run_at"],
+            "last_activity_at": row["last_activity_at"],
         }
 
     @staticmethod
-    def _row_to_task(row: tuple) -> Dict[str, Any]:
+    def _row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
+        progress_raw = row["progress_json"]
+        findings_raw = row["findings_json"]
         return {
-            "id": row[0],
-            "agent_id": row[1],
-            "description": row[2],
-            "status": row[3],
-            "progress": json.loads(row[4]),
-            "findings": json.loads(row[5]),
-            "created_at": row[6],
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "description": row["description"],
+            "status": row["status"],
+            "progress": json.loads(progress_raw) if progress_raw else {},
+            "findings": json.loads(findings_raw) if findings_raw else [],
+            "created_at": row["created_at"],
         }
 
     @staticmethod
-    def _row_to_binding(row: tuple) -> Dict[str, Any]:
+    def _row_to_binding(row: sqlite3.Row) -> Dict[str, Any]:
+        config_raw = row["config_json"]
         return {
-            "id": row[0],
-            "agent_id": row[1],
-            "channel_type": row[2],
-            "config": json.loads(row[3]),
-            "session_id": row[4],
-            "routing_mode": row[5],
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "channel_type": row["channel_type"],
+            "config": json.loads(config_raw) if config_raw else {},
+            "session_id": row["session_id"] or "",
+            "routing_mode": row["routing_mode"] or "auto",
         }
