@@ -34,6 +34,12 @@ results = j.memory.search("attention mechanism")  # semantic retrieval
 j.close()
 ```
 
+## Why OpenJarvis?
+
+Personal AI agents are taking off — but nearly all of them route your data through cloud APIs. Our [Intelligence Per Watt](https://www.intelligence-per-watt.ai/) research found that local language models already handle 88.7% of queries accurately, with efficiency improving 5.3× from 2023 to 2025. The models and hardware are ready. What's been missing is the software stack.
+
+OpenJarvis provides that stack. It replaces ad-hoc integration with five composable primitives (Intelligence, Engine, Agents, Tools & Memory, and Learning) that share a common architecture. It treats energy and dollar cost as first-class objectives alongside accuracy — not afterthoughts. And every primitive is local-first, designed to discover and adapt to the accelerators on your device. The critical path is written in Rust for memory safety and predictable latency; Python handles orchestration and ML pipelines. The goal is to serve both as a research platform and as production-grade infrastructure.
+
 ## Installation
 
 ```bash

@@ -16,6 +16,14 @@ Build personal AI that runs on your hardware. Cloud APIs are optional.
 
 ---
 
+## Why OpenJarvis?
+
+Personal AI agents are exploding in popularity — but nearly all of them route intelligence, tools, and even memory through cloud APIs. Your "personal" AI still lives on someone else's server. Our [Intelligence Per Watt](https://www.intelligence-per-watt.ai/) research showed that local language models already handle 88.7% of single-turn chat and reasoning queries, with intelligence efficiency improving 5.3× from 2023 to 2025. The models and hardware are ready. What's been missing is the software stack.
+
+OpenJarvis is that stack. Three design principles guide every decision: **composable** — five interoperable primitives replacing bespoke integration; **constraint-aware** — energy, latency, and dollar cost are first-class objectives alongside accuracy; and **local-first** — every primitive discovers and adapts to the accelerators on your device. A hybrid Rust + Python architecture keeps the critical path (security, sandboxing, tool execution) fast and memory-safe, while Python handles orchestration, ML pipelines, and the evaluation harness.
+
+---
+
 ## Get Started
 
 === "Browser App"
