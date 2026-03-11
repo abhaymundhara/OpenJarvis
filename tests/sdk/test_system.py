@@ -410,3 +410,29 @@ class TestJarvisSystemClose:
         assert system.scheduler_store is None
         assert system.scheduler is None
         assert system.container_runner is None
+
+    def test_close_with_agent_scheduler(self):
+        engine = MagicMock()
+        agent_scheduler = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+            agent_scheduler=agent_scheduler,
+        )
+        system.close()
+        agent_scheduler.stop.assert_called_once()
+
+    def test_system_agent_fields_default_none(self):
+        engine = MagicMock()
+        system = JarvisSystem(
+            config=JarvisConfig(),
+            bus=EventBus(),
+            engine=engine,
+            engine_key="mock",
+            model="test",
+        )
+        assert system.agent_scheduler is None
+        assert system.agent_executor is None

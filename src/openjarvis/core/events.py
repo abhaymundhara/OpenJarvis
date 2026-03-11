@@ -61,6 +61,14 @@ class EventType(str, Enum):
     # Phase 22 — Operators
     OPERATOR_TICK_START = "operator_tick_start"
     OPERATOR_TICK_END = "operator_tick_end"
+    # Managed agent lifecycle (distinct from OPERATOR_TICK_* for the operator subsystem)
+    AGENT_TICK_START = "agent_tick_start"
+    AGENT_TICK_END = "agent_tick_end"
+    AGENT_TICK_ERROR = "agent_tick_error"
+    AGENT_BUDGET_EXCEEDED = "agent_budget_exceeded"
+    AGENT_STALL_DETECTED = "agent_stall_detected"
+    AGENT_MESSAGE_RECEIVED = "agent_message_received"
+    AGENT_CHECKPOINT_SAVED = "agent_checkpoint_saved"
     # Phase 25 — Configuration Optimization
     OPTIMIZE_RUN_START = "optimize_run_start"
     OPTIMIZE_TRIAL_START = "optimize_trial_start"

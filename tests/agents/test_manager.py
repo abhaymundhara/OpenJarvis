@@ -161,3 +161,114 @@ class TestConcurrency:
         # Trying to run again should raise
         with pytest.raises(ValueError, match="already executing"):
             manager.start_tick(agent["id"])
+
+
+class TestCheckpoints:
+    def test_save_checkpoint(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.save_checkpoint(
+            agent["id"],
+            tick_id="tick-001",
+            conversation_state={"messages": [{"role": "user", "content": "hello"}]},
+            tool_state={"web_search": {"last_query": "test"}},
+        )
+        checkpoints = manager.list_checkpoints(agent["id"])
+        assert len(checkpoints) == 1
+        assert checkpoints[0]["tick_id"] == "tick-001"
+
+    def test_get_latest_checkpoint(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.save_checkpoint(agent["id"], "tick-001", {"v": 1}, {})
+        manager.save_checkpoint(agent["id"], "tick-002", {"v": 2}, {})
+
+        latest = manager.get_latest_checkpoint(agent["id"])
+        assert latest is not None
+        assert latest["tick_id"] == "tick-002"
+        assert latest["conversation_state"]["v"] == 2
+
+    def test_checkpoint_retention_max_5(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        for i in range(8):
+            manager.save_checkpoint(agent["id"], f"tick-{i:03d}", {"v": i}, {})
+
+        checkpoints = manager.list_checkpoints(agent["id"])
+        assert len(checkpoints) == 5
+        # Oldest should be tick-003 (0,1,2 pruned)
+        assert checkpoints[-1]["tick_id"] == "tick-003"
+
+    def test_recover_agent(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.save_checkpoint(agent["id"], "tick-001", {"messages": []}, {})
+        manager.update_agent(agent["id"], status="error")
+
+        checkpoint = manager.recover_agent(agent["id"])
+        assert checkpoint is not None
+        assert manager.get_agent(agent["id"])["status"] == "idle"
+
+
+class TestMessageQueue:
+    def test_send_queued_message(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        msg = manager.send_message(agent["id"], "Focus on transformers", mode="queued")
+        assert msg["id"]
+        assert msg["direction"] == "user_to_agent"
+        assert msg["mode"] == "queued"
+        assert msg["status"] == "pending"
+
+    def test_list_messages(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.send_message(agent["id"], "msg1", mode="queued")
+        manager.send_message(agent["id"], "msg2", mode="queued")
+        messages = manager.list_messages(agent["id"])
+        assert len(messages) == 2
+
+    def test_get_pending_messages(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.send_message(agent["id"], "pending1", mode="queued")
+        manager.send_message(agent["id"], "pending2", mode="queued")
+        pending = manager.get_pending_messages(agent["id"])
+        assert len(pending) == 2
+        assert all(m["status"] == "pending" for m in pending)
+
+    def test_mark_messages_delivered(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        msg = manager.send_message(agent["id"], "test", mode="queued")
+        manager.mark_message_delivered(msg["id"])
+        messages = manager.list_messages(agent["id"])
+        assert messages[0]["status"] == "delivered"
+
+    def test_add_agent_response(self, manager):
+        agent = manager.create_agent(name="test", agent_type="simple")
+        manager.send_message(agent["id"], "What did you find?", mode="immediate")
+        resp = manager.add_agent_response(agent["id"], "Found 3 papers")
+        assert resp["direction"] == "agent_to_user"
+
+
+class TestSchemaAndThreading:
+    def test_agent_has_runtime_columns(self, manager):
+        """New columns from ALTER TABLE migration should exist."""
+        agent = manager.create_agent(name="test", agent_type="simple")
+        assert "total_tokens" in agent
+        assert "total_cost" in agent
+        assert "total_runs" in agent
+        assert "last_run_at" in agent
+        assert "last_activity_at" in agent
+        assert agent["total_tokens"] == 0
+        assert agent["total_cost"] == 0.0
+        assert agent["total_runs"] == 0
+
+    def test_thread_safety(self, manager):
+        """AgentManager should be usable from a different thread."""
+        import threading
+
+        results = []
+
+        def create_in_thread():
+            agent = manager.create_agent(name="threaded", agent_type="simple")
+            results.append(agent)
+
+        t = threading.Thread(target=create_in_thread)
+        t.start()
+        t.join(timeout=5)
+        assert len(results) == 1
+        assert results[0]["name"] == "threaded"

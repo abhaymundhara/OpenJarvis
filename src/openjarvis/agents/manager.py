@@ -12,6 +12,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 _CREATE_AGENTS = """\
 CREATE TABLE IF NOT EXISTS managed_agents (
@@ -49,6 +50,29 @@ CREATE TABLE IF NOT EXISTS channel_bindings (
 );
 """
 
+_CREATE_CHECKPOINTS = """\
+CREATE TABLE IF NOT EXISTS agent_checkpoints (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL REFERENCES managed_agents(id),
+    tick_id TEXT NOT NULL,
+    conversation_state TEXT NOT NULL DEFAULT '{}',
+    tool_state TEXT NOT NULL DEFAULT '{}',
+    created_at REAL NOT NULL
+);
+"""
+
+_CREATE_MESSAGES = """\
+CREATE TABLE IF NOT EXISTS agent_messages (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL REFERENCES managed_agents(id),
+    direction TEXT NOT NULL,
+    content TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'queued',
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at REAL NOT NULL
+);
+"""
+
 _SUMMARY_MAX = 2000
 
 
@@ -57,12 +81,29 @@ class AgentManager:
 
     def __init__(self, db_path: str) -> None:
         self._db_path = str(db_path)
-        self._conn = sqlite3.connect(self._db_path)
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.execute(_CREATE_AGENTS)
         self._conn.execute(_CREATE_TASKS)
         self._conn.execute(_CREATE_BINDINGS)
+        self._conn.executescript(_CREATE_CHECKPOINTS)
+        self._conn.executescript(_CREATE_MESSAGES)
+        self._conn.commit()
+        # Schema migrations for runtime columns
+        _MIGRATIONS = [
+            "ALTER TABLE managed_agents ADD COLUMN total_tokens INTEGER DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN total_cost REAL DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN total_runs INTEGER DEFAULT 0",
+            "ALTER TABLE managed_agents ADD COLUMN last_run_at REAL",
+            "ALTER TABLE managed_agents ADD COLUMN last_activity_at REAL",
+        ]
+        for migration in _MIGRATIONS:
+            try:
+                self._conn.execute(migration)
+            except sqlite3.OperationalError:
+                pass  # Column already exists
         self._conn.commit()
 
     def close(self) -> None:
@@ -113,6 +154,12 @@ class AgentManager:
         if "config" in kwargs:
             sets.append("config_json = ?")
             vals.append(json.dumps(kwargs["config"]))
+        total_runs_increment = kwargs.get("total_runs_increment", 0)
+        if total_runs_increment:
+            sets.append("total_runs = total_runs + ?")
+            vals.append(total_runs_increment)
+            sets.append("last_run_at = ?")
+            vals.append(time.time())
         sets.append("updated_at = ?")
         vals.append(time.time())
         vals.append(agent_id)
@@ -149,6 +196,80 @@ class AgentManager:
 
     def end_tick(self, agent_id: str) -> None:
         self._set_status(agent_id, "idle")
+
+    # ── Checkpoints ───────────────────────────────────────────────
+
+    _CHECKPOINT_RETENTION = 5
+
+    def save_checkpoint(
+        self,
+        agent_id: str,
+        tick_id: str,
+        conversation_state: dict,
+        tool_state: dict,
+    ) -> dict:
+        cp_id = uuid4().hex[:16]
+        now = time.time()
+        self._conn.execute(
+            "INSERT INTO agent_checkpoints"
+            " (id, agent_id, tick_id, conversation_state, tool_state, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                cp_id,
+                agent_id,
+                tick_id,
+                json.dumps(conversation_state),
+                json.dumps(tool_state),
+                now,
+            ),
+        )
+        # Prune old checkpoints beyond retention limit
+        self._conn.execute(
+            "DELETE FROM agent_checkpoints WHERE agent_id = ? AND id NOT IN "
+            "(SELECT id FROM agent_checkpoints WHERE agent_id = ?"
+            " ORDER BY created_at DESC LIMIT ?)",
+            (agent_id, agent_id, self._CHECKPOINT_RETENTION),
+        )
+        self._conn.commit()
+        return {
+            "id": cp_id,
+            "agent_id": agent_id,
+            "tick_id": tick_id,
+            "created_at": now,
+        }
+
+    def list_checkpoints(self, agent_id: str) -> list:
+        rows = self._conn.execute(
+            "SELECT * FROM agent_checkpoints"
+            " WHERE agent_id = ? ORDER BY created_at DESC",
+            (agent_id,),
+        ).fetchall()
+        return [self._row_to_checkpoint(r) for r in rows]
+
+    def get_latest_checkpoint(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        row = self._conn.execute(
+            "SELECT * FROM agent_checkpoints"
+            " WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1",
+            (agent_id,),
+        ).fetchone()
+        return self._row_to_checkpoint(row) if row else None
+
+    def recover_agent(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        checkpoint = self.get_latest_checkpoint(agent_id)
+        if checkpoint is not None:
+            self.update_agent(agent_id, status="idle")
+        return checkpoint
+
+    @staticmethod
+    def _row_to_checkpoint(row: sqlite3.Row) -> Dict[str, Any]:
+        return {
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "tick_id": row["tick_id"],
+            "conversation_state": json.loads(row["conversation_state"]),
+            "tool_state": json.loads(row["tool_state"]),
+            "created_at": row["created_at"],
+        }
 
     # ── Summary memory ────────────────────────────────────────────
 
@@ -326,40 +447,127 @@ class AgentManager:
         agent_type = config.pop("agent_type", "monitor_operative")
         return self.create_agent(name=name, agent_type=agent_type, config=config)
 
+    # ── Message queue ─────────────────────────────────────────────
+
+    def send_message(self, agent_id: str, content: str, mode: str = "queued") -> dict:
+        msg_id = uuid4().hex[:16]
+        now = time.time()
+        _sql = (
+            "INSERT INTO agent_messages"
+            " (id, agent_id, direction, content, mode, status, created_at)"
+            " VALUES (?, ?, 'user_to_agent', ?, ?, 'pending', ?)"
+        )
+        self._conn.execute(_sql, (msg_id, agent_id, content, mode, now))
+        self._conn.commit()
+        return {
+            "id": msg_id,
+            "agent_id": agent_id,
+            "direction": "user_to_agent",
+            "content": content,
+            "mode": mode,
+            "status": "pending",
+            "created_at": now,
+        }
+
+    def list_messages(self, agent_id: str, limit: int = 50) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM agent_messages"
+            " WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?",
+            (agent_id, limit),
+        ).fetchall()
+        return [self._row_to_message(r) for r in rows]
+
+    def get_pending_messages(self, agent_id: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM agent_messages"
+            " WHERE agent_id = ? AND direction = 'user_to_agent'"
+            " AND status = 'pending' ORDER BY created_at ASC",
+            (agent_id,),
+        ).fetchall()
+        return [self._row_to_message(r) for r in rows]
+
+    def mark_message_delivered(self, message_id: str) -> None:
+        self._conn.execute(
+            "UPDATE agent_messages SET status = 'delivered' WHERE id = ?",
+            (message_id,),
+        )
+        self._conn.commit()
+
+    def add_agent_response(self, agent_id: str, content: str) -> dict:
+        msg_id = uuid4().hex[:16]
+        now = time.time()
+        _sql = (
+            "INSERT INTO agent_messages"
+            " (id, agent_id, direction, content, mode, status, created_at)"
+            " VALUES (?, ?, 'agent_to_user', ?, 'immediate', 'responded', ?)"
+        )
+        self._conn.execute(_sql, (msg_id, agent_id, content, now))
+        self._conn.commit()
+        return {
+            "id": msg_id,
+            "agent_id": agent_id,
+            "direction": "agent_to_user",
+            "content": content,
+            "mode": "immediate",
+            "status": "responded",
+            "created_at": now,
+        }
+
+    @staticmethod
+    def _row_to_message(row: sqlite3.Row) -> dict:
+        return {
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "direction": row["direction"],
+            "content": row["content"],
+            "mode": row["mode"],
+            "status": row["status"],
+            "created_at": row["created_at"],
+        }
+
     # ── Row converters ────────────────────────────────────────────
 
     @staticmethod
-    def _row_to_agent(row: tuple) -> Dict[str, Any]:
+    def _row_to_agent(row: sqlite3.Row) -> Dict[str, Any]:
+        config_raw = row["config_json"]
         return {
-            "id": row[0],
-            "name": row[1],
-            "agent_type": row[2],
-            "config": json.loads(row[3]),
-            "status": row[4],
-            "summary_memory": row[5],
-            "created_at": row[6],
-            "updated_at": row[7],
+            "id": row["id"],
+            "name": row["name"],
+            "agent_type": row["agent_type"],
+            "config": json.loads(config_raw) if config_raw else {},
+            "status": row["status"],
+            "summary_memory": row["summary_memory"] or "",
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "total_tokens": row["total_tokens"] or 0,
+            "total_cost": row["total_cost"] or 0.0,
+            "total_runs": row["total_runs"] or 0,
+            "last_run_at": row["last_run_at"],
+            "last_activity_at": row["last_activity_at"],
         }
 
     @staticmethod
-    def _row_to_task(row: tuple) -> Dict[str, Any]:
+    def _row_to_task(row: sqlite3.Row) -> Dict[str, Any]:
+        progress_raw = row["progress_json"]
+        findings_raw = row["findings_json"]
         return {
-            "id": row[0],
-            "agent_id": row[1],
-            "description": row[2],
-            "status": row[3],
-            "progress": json.loads(row[4]),
-            "findings": json.loads(row[5]),
-            "created_at": row[6],
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "description": row["description"],
+            "status": row["status"],
+            "progress": json.loads(progress_raw) if progress_raw else {},
+            "findings": json.loads(findings_raw) if findings_raw else [],
+            "created_at": row["created_at"],
         }
 
     @staticmethod
-    def _row_to_binding(row: tuple) -> Dict[str, Any]:
+    def _row_to_binding(row: sqlite3.Row) -> Dict[str, Any]:
+        config_raw = row["config_json"]
         return {
-            "id": row[0],
-            "agent_id": row[1],
-            "channel_type": row[2],
-            "config": json.loads(row[3]),
-            "session_id": row[4],
-            "routing_mode": row[5],
+            "id": row["id"],
+            "agent_id": row["agent_id"],
+            "channel_type": row["channel_type"],
+            "config": json.loads(config_raw) if config_raw else {},
+            "session_id": row["session_id"] or "",
+            "routing_mode": row["routing_mode"] or "auto",
         }

@@ -11,6 +11,12 @@ import type {
 } from '../types';
 import type { ManagedAgent } from './api';
 
+export interface AgentEvent {
+  type: string;
+  timestamp: number;
+  data: Record<string, unknown>;
+}
+
 // ── localStorage persistence ──────────────────────────────────────────
 
 const CONVERSATIONS_KEY = 'openjarvis-conversations';
@@ -168,6 +174,11 @@ interface AppState {
   setManagedAgents: (agents: ManagedAgent[]) => void;
   setManagedAgentsLoading: (loading: boolean) => void;
   setSelectedAgentId: (id: string | null) => void;
+
+  // Agent events (live stream)
+  agentEvents: AgentEvent[];
+  addAgentEvent: (event: AgentEvent) => void;
+  clearAgentEvents: () => void;
 
   // Actions: opt-in sharing
   setOptIn: (enabled: boolean, displayName: string) => void;
@@ -366,6 +377,12 @@ export const useAppStore = create<AppState>((set, get) => {
     setManagedAgents: (agents) => set({ managedAgents: agents }),
     setManagedAgentsLoading: (loading) => set({ managedAgentsLoading: loading }),
     setSelectedAgentId: (id) => set({ selectedAgentId: id }),
+
+    agentEvents: [],
+    addAgentEvent: (event) => set((s) => ({
+      agentEvents: [...s.agentEvents.slice(-99), event],
+    })),
+    clearAgentEvents: () => set({ agentEvents: [] }),
 
     // ── Opt-in sharing ──────────────────────────────────────────────
 

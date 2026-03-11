@@ -44,6 +44,8 @@ class JarvisSystem:
     capability_policy: Optional[Any] = None  # CapabilityPolicy
     operator_manager: Optional[Any] = None  # OperatorManager
     agent_manager: Optional[Any] = None  # AgentManager
+    agent_scheduler: Optional[Any] = None  # AgentScheduler
+    agent_executor: Optional[Any] = None  # AgentExecutor
     speech_backend: Optional[Any] = None  # SpeechBackend
     _learning_orchestrator: Optional[Any] = None  # LearningOrchestrator
 
@@ -284,6 +286,8 @@ class JarvisSystem:
                 resource.close()
         if self.agent_manager is not None:
             self.agent_manager.close()
+        if self.agent_scheduler is not None:
+            self.agent_scheduler.stop()
 
     def __enter__(self) -> JarvisSystem:
         return self
@@ -485,6 +489,25 @@ class SystemBuilder:
             except Exception as exc:
                 logger.warning("Failed to initialize agent manager: %s", exc)
 
+        # Executor + Scheduler (depend on agent_manager)
+        agent_executor = None
+        agent_scheduler = None
+        if agent_manager is not None:
+            try:
+                from openjarvis.agents.executor import AgentExecutor
+                from openjarvis.agents.scheduler import AgentScheduler
+
+                agent_executor = AgentExecutor(
+                    manager=agent_manager,
+                    event_bus=bus,
+                )
+                agent_scheduler = AgentScheduler(
+                    manager=agent_manager,
+                    executor=agent_executor,
+                )
+            except Exception:
+                logger.warning("Failed to initialize agent scheduler", exc_info=True)
+
         # Set up speech backend
         speech_backend = None
         speech_enabled = self._speech if self._speech is not None else True
@@ -515,9 +538,14 @@ class SystemBuilder:
             session_store=session_store,
             capability_policy=capability_policy,
             agent_manager=agent_manager,
+            agent_scheduler=agent_scheduler,
+            agent_executor=agent_executor,
             speech_backend=speech_backend,
         )
         system._learning_orchestrator = learning_orchestrator
+        # Wire system reference — must happen before scheduler.start()
+        if system.agent_executor is not None:
+            system.agent_executor.set_system(system)
         return system
 
     def _resolve_engine(self, config: JarvisConfig):
