@@ -815,6 +815,16 @@ def include_all_routes(app) -> None:
     except ImportError:
         pass
 
+    # WebSocket bridge for real-time agent events
+    try:
+        from openjarvis.core.events import get_event_bus
+        from openjarvis.server.ws_bridge import create_ws_router
+
+        ws_router = create_ws_router(get_event_bus())
+        app.include_router(ws_router)
+    except Exception:
+        logger.debug("WebSocket bridge not available", exc_info=True)
+
 
 __all__ = [
     "include_all_routes",
