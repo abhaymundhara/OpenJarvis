@@ -74,7 +74,7 @@ def ensure_registered() -> None:
 
     # Orchestrator-native SFT & GRPO training
     try:
-        import openjarvis.learning.orchestrator  # noqa: F401
+        import openjarvis.learning.intelligence.orchestrator  # noqa: F401
     except ImportError:
         pass
 
