@@ -575,7 +575,7 @@ async def learning_stats(request: Request):
 
     # Skill discovery
     try:
-        from openjarvis.learning.skill_discovery import SkillDiscovery
+        from openjarvis.learning.agents.skill_discovery import SkillDiscovery
         discovery = SkillDiscovery()
         result["skill_discovery"] = {
             "available": True,
