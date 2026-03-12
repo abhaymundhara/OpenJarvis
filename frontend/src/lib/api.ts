@@ -15,7 +15,7 @@ declare global {
 
 export const isTauri = () => typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__;
 
-const DESKTOP_API = 'http://127.0.0.1:8222';
+const DESKTOP_API = 'http://127.0.0.1:8000';
 
 const getBase = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;

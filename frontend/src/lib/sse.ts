@@ -7,7 +7,7 @@ export interface ChatRequest {
   stream: true;
 }
 
-const DESKTOP_API = 'http://127.0.0.1:8222';
+const DESKTOP_API = 'http://127.0.0.1:8000';
 
 export async function* streamChat(
   request: ChatRequest,
