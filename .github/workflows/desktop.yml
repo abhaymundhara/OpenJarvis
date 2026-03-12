@@ -182,7 +182,7 @@ jobs:
           fi
 
       - name: Build and release
-        timeout-minutes: 60
+        timeout-minutes: 120
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
